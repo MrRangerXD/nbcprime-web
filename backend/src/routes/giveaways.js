@@ -10,13 +10,11 @@ router.use(requireAuth);
 router.get('/', async (req, res) => {
   const filters = [];
   const params = [];
-
   if (req.query.guildId) { params.push(req.query.guildId); filters.push(`guild_id = $${params.length}`); }
-  if (req.query.status)  { params.push(req.query.status);  filters.push(`status = $${params.length}`); }
-
+  if (req.query.status) { params.push(req.query.status); filters.push(`status = $${params.length}`); }
   const where = filters.length ? 'where ' + filters.join(' and ') : '';
-  const rows = await many(`select * from giveaways ${where} order by created_at desc limit 100`, params);
 
+  const rows = await many(`select * from giveaways ${where} order by created_at desc limit 100`, params);
   res.json({ ok: true, data: rows });
 });
 
@@ -54,18 +52,14 @@ router.post('/:id/end', requireAdmin, async (req, res) => {
   const g = await one('select * from giveaways where id = $1', [req.params.id]);
   if (!g) return res.status(404).json({ ok: false, error: 'not_found' });
 
-  const messageId = g.messageId || req.body?.messageId;
-  if (!messageId) return res.status(400).json({ ok: false, error: 'message_id_required' });
-
   const r = await botPost('/api/execute', {
     guild_id: g.guildId,
     action: 'giveaway_end',
-    args: { message_id: messageId },
+    args: { message_id: g.messageId || req.body.messageId },
   });
 
   await q(`update giveaways set status = 'ended', ended_at = now() where id = $1`, [req.params.id]);
   await audit(req, 'giveaway:end', g.guildId);
-
   res.json({ ok: true, jobId: r.data?.job_id ?? null });
 });
 
