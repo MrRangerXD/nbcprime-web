@@ -33,3 +33,39 @@
     background-size: 48px 48px;
   }
 }
+
+/* --- gradient headline: keeps text legible, glow does NOT bleed through --- */
+.text-gradient {
+  background-image: linear-gradient(100deg, #c4b5fd 0%, #f0abfc 45%, #a78bfa 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 26px rgba(139, 92, 246, 0.5));
+}
+
+/* --- marquee --- */
+.marquee-mask {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+.marquee-track {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+}
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: marquee 46s linear infinite;
+}
+.marquee-mask:hover .animate-marquee {
+  animation-play-state: paused;
+}
+
+/* --- hide scrollbar on category tabs --- */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
