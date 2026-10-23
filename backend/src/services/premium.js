@@ -1,7 +1,9 @@
 import { q } from '../db.js';
 
-export async function grantPremium(discordId, days, source) {
-  await q(
+export async function grantPremium(discordId, days, source, client = null) {
+  const run = client ? (text, params) => client.query(text, params) : q;
+
+  await run(
     `update users
         set is_premium = true,
             premium_source = case when $2::int is null then 'lifetime' else $3 end,
