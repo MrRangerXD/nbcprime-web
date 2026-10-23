@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
-import { one, q } from '../db.js';
+import { one, many, q } from '../db.js';
 import { ADDRESSES, quote, paymentUri, findPayment } from '../services/crypto.js';
 import { grantPremium } from '../services/premium.js';
 import { env } from '../config/env.js';
