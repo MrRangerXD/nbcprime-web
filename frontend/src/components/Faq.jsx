@@ -2,46 +2,16 @@ import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 
 const QA = [
-  {
-    q: 'Can I use the bot for free?',
-    a: 'Yes. Every command, the dashboard, live leaderboards and backups are free. Premium only removes cooldowns and puts you at the front of the action queue — nothing is locked behind it.',
-  },
-  {
-    q: 'How many commands does NBCPrime have?',
-    a: '123 commands across 9 categories, available as both slash commands and prefix commands. That covers moderation, channels, roles, server management, utility, giveaways, backups, whitelisting and fun.',
-  },
-  {
-    q: 'Does nuking delete my members?',
-    a: 'No. A nuke only wipes channels, categories and roles, then rebuilds them from your chosen template. Members, their roles, nicknames and join dates stay untouched.',
-  },
-  {
-    q: 'Will I hit Discord rate limits (429)?',
-    a: 'The bot runs a semaphore with request jitter, so parallel actions are throttled instead of fired blindly. It survives 5,000-request raids without tripping the 429 wall.',
-  },
-  {
-    q: 'How do I activate Premium?',
-    a: 'Open Premium from the dashboard, pick a plan, pay the exact crypto amount to the shown address, then hit Verify. Confirmation happens on-chain and Premium activates automatically — no admin needs to approve it.',
-  },
-  {
-    q: 'What permissions does the bot need?',
-    a: 'Administrator. It needs to create and delete channels, manage roles and permissions, and perform mass bans, so a narrower permission set would break most commands.',
-  },
-  {
-    q: 'Can I back up and restore a server?',
-    a: 'Yes. Snapshot channels, roles and settings with a single command, store unlimited backups, and restore them into any server you own. Automatic recurring backups are supported too.',
-  },
-  {
-    q: 'Does it work with slash commands and prefix commands?',
-    a: 'Both. Every slash command has a prefix equivalent, so your members can use whichever they prefer. You can also change the prefix per server with the prefix command.',
-  },
-  {
-    q: 'What happens if the bot goes offline mid-nuke?',
-    a: 'Actions already dispatched to Discord complete normally. Anything queued is retried when the bot reconnects, and the dashboard shows the live gateway latency so you can see the state before you start.',
-  },
-  {
-    q: 'Is there a refund policy?',
-    a: 'Crypto payments are final once confirmed on-chain. If a payment does not match, you get a 30 minute window to verify again — send the exact amount shown and it will reconcile.',
-  },
+  { q: 'Can I use the bot for free?', a: 'Yes. Every command, the dashboard, live leaderboards and backups are free. Premium only removes cooldowns and puts you at the front of the action queue — nothing is locked behind it.' },
+  { q: 'How many commands does NBCPrime have?', a: '141 commands across 13 categories, available as both slash commands and prefix commands.' },
+  { q: 'Does nuking delete my members?', a: 'No. A nuke only wipes channels, categories and roles, then rebuilds them from your template. Members, their roles, nicknames and join dates stay untouched.' },
+  { q: 'Will I hit Discord rate limits (429)?', a: 'The bot runs a semaphore with request jitter, so parallel actions are throttled instead of fired blindly. It survives 5,000-request raids without tripping the 429 wall.' },
+  { q: 'How do I activate Premium?', a: 'Open Premium from the dashboard, pick a plan, pay the exact crypto amount to the shown address, then hit Verify. Confirmation happens on-chain and Premium activates automatically — no admin needs to approve it.' },
+  { q: 'What permissions does the bot need?', a: 'Administrator. It needs to create and delete channels, manage roles and permissions, and perform mass bans, so a narrower permission set would break most commands.' },
+  { q: 'Can I back up and restore a server?', a: 'Yes. Snapshot channels, roles and settings with a single command, store unlimited backups, and restore them into any server you own.' },
+  { q: 'Does it work with slash and prefix commands?', a: 'Both. Every slash command has a prefix equivalent, so your members can use whichever they prefer. You can also change the prefix per server.' },
+  { q: 'What happens if the bot goes offline mid-nuke?', a: 'Actions already dispatched to Discord complete normally. Anything queued is retried when the bot reconnects, and the dashboard shows live gateway latency.' },
+  { q: 'Is there a refund policy?', a: 'Crypto payments are final once confirmed on-chain. If a payment does not match, you get a 30 minute window to verify again — send the exact amount shown and it will reconcile.' },
 ];
 
 export default function Faq() {
@@ -63,14 +33,9 @@ export default function Faq() {
                 className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left"
               >
                 <span className="text-sm font-medium">{item.q}</span>
-                <ChevronDown
-                  size={16}
-                  className={'shrink-0 text-muted transition-transform ' + (isOpen ? 'rotate-180 text-accent' : '')}
-                />
+                <ChevronDown size={16} className={'shrink-0 text-muted transition-transform ' + (isOpen ? 'rotate-180 text-accent' : '')} />
               </button>
-              {isOpen && (
-                <p className="border-t border-edge px-5 py-4 text-sm leading-relaxed text-muted">{item.a}</p>
-              )}
+              {isOpen && <p className="border-t border-edge px-5 py-4 text-sm leading-relaxed text-muted">{item.a}</p>}
             </div>
           );
         })}
