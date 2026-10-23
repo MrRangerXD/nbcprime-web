@@ -2,9 +2,9 @@ import axios from 'axios';
 
 const RAW = import.meta.env.VITE_API_URL;
 
-if (!RAW) console.warn('[api] VITE_API_URL is not set — falling back to same-origin.');
+if (!RAW) console.warn('[api] VITE_API_URL is not set — same-origin fallback (vite dev proxy).');
 
-export const API = (RAW || '').replace(/\/$/, '');
+export const API = (RAW || '').replace(/\/+$/, '');
 
 export const api = axios.create({
   baseURL: API || undefined,
