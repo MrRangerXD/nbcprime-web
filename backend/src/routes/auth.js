@@ -127,6 +127,8 @@ router.get('/me', requireAuth, (req, res) => {
       isAdmin: u.isAdmin || isOwner(u.discordId) || adminIds.includes(u.discordId),
       isOwner: isOwner(u.discordId),
       isPremium: u.isPremium,
+      isBanned: u.isBanned,              // FIX
+      banReason: u.blacklistReason,      // FIX
       adminGuilds: u.adminGuilds || [],
     },
   });
