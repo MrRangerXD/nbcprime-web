@@ -29,7 +29,11 @@ export default function ServerDetail() {
     setBusy(action);
     setToast(null);
     try {
-      const r = await api.post('/api/guilds/' + guildId + '/execute', { action, args });
+      // FIX: leave ka apna owner-only route hai, /execute pe bhejne se wo dead code tha
+      const r = action === 'leave'
+        ? await api.post('/api/guilds/' + guildId + '/leave')
+        : await api.post('/api/guilds/' + guildId + '/execute', { action, args });
+
       setToast({ ok: true, msg: action + ' queued (' + r.jobId + ')' });
       setTimeout(load, 4000);
     } catch (e) {
