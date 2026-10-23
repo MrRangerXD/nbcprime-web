@@ -13,7 +13,7 @@ export const Stat = ({ label, value, icon: Icon, hint }) => (
   </div>
 );
 
-export const Badge = ({ children, tone = 'default' }) => {
+export const Badge = ({ children, tone = 'default', className = '' }) => {
   const tones = {
     default: 'bg-white/5 text-white/70 border-edge',
     green: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30',
@@ -22,7 +22,12 @@ export const Badge = ({ children, tone = 'default' }) => {
     amber: 'bg-amber-500/10 text-amber-300 border-amber-500/30',
   };
   return (
-    <span className={'inline-flex items-center rounded-lg border px-2 py-0.5 text-xs font-medium ' + tones[tone]}>
+    <span
+      className={
+        'inline-flex items-center rounded-lg border px-2 py-0.5 text-xs font-medium ' +
+        (tones[tone] || tones.default) + ' ' + className
+      }
+    >
       {children}
     </span>
   );
@@ -44,8 +49,9 @@ export const Empty = ({ title, sub }) => (
 
 export const Avatar = ({ src, alt, size = 36 }) => (
   <img
-    src={src}
+    src={src || '/logo.png'}
     alt={alt}
+    onError={(e) => { e.currentTarget.src = '/logo.png'; }}
     className="rounded-full border border-edge object-cover bg-surface"
     style={{ width: size, height: size }}
   />
