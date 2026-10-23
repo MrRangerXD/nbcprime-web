@@ -24,6 +24,9 @@ export async function attachUser(req, _res, next) {
     const { sub } = jwt.verify(token, env.JWT_SECRET);
     req.user = await one('select * from users where discord_id = $1', [sub]);
   } catch { /* expired */ }
+  if (req.user?.premiumUntil && new Date(req.user.premiumUntil).getTime() < Date.now()) {
+  req.user.isPremium = false;
+}
   next();
 }
 
