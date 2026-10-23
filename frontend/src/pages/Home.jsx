@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Rocket, Zap, Shield, Users, Server, Terminal, ArrowRight, Gift,
-  Trophy, Command, Layers, Clock, Activity, ChevronRight, MousePointerClick, Slash,
+  Trophy, Command, Layers, Clock, ChevronRight, MousePointerClick, Slash,
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { nf, avatarUrl } from '../lib/format';
@@ -22,7 +22,7 @@ const features = [
   { icon: Zap, title: 'Zero Rate Limits', desc: 'A semaphore and jitter engine tuned to survive 5,000-request raids without a single 429.' },
   { icon: Gift, title: 'Giveaway Engine', desc: 'Host, pause, end and reroll giveaways straight from the dashboard or from chat.' },
   { icon: Trophy, title: 'Live Leaderboards', desc: 'Global top users and top servers, ranked by real usage and updated in real time.' },
-  { icon: Shield, title: 'Whitelist Protection', desc: 'Mark a server as protected so no nuke ever touches it, and lock usage to a role.' },
+  { icon: Shield, title: 'Anti-Nuke Shield', desc: 'Whitelist trusted users, set action limits and let the shield kill raids before they land.' },
   { icon: Layers, title: 'Backup & Restore', desc: 'Snapshot channels, roles and settings, then restore them into any server you own.' },
 ];
 
@@ -52,18 +52,12 @@ export default function Home() {
 
   return (
     <div>
-      {/* ---------- HERO ---------- */}
       <section className="relative grid-bg overflow-hidden border-b border-edge">
         <div className="pointer-events-none absolute -top-40 left-1/2 h-96 w-[46rem] -translate-x-1/2 rounded-full bg-accent/20 blur-[120px]" />
         <div className="relative mx-auto max-w-7xl px-5 py-24 text-center md:py-32">
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
             <Badge tone={stats ? 'green' : 'purple'} className="mb-6">
-              <span
-                className={
-                  'mr-1.5 inline-block h-1.5 w-1.5 rounded-full animate-pulseGlow ' +
-                  (stats ? 'bg-emerald-400' : 'bg-amber-400')
-                }
-              />
+              <span className={'mr-1.5 inline-block h-1.5 w-1.5 rounded-full animate-pulseGlow ' + (stats ? 'bg-emerald-400' : 'bg-amber-400')} />
               {stats ? 'Bot online' : 'Connecting'}
             </Badge>
 
@@ -74,41 +68,27 @@ export default function Home() {
             </h1>
 
             <p className="mx-auto mt-6 max-w-xl text-muted">
-              Delete everything. Rebuild everything. From one dashboard. {TOTAL_COMMANDS} commands, slash and prefix,
-              trusted by thousands of servers.
+              Delete everything. Rebuild everything. From one dashboard. {TOTAL_COMMANDS} commands,
+              slash and prefix, trusted by thousands of servers.
             </p>
 
             <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
               {user ? (
-                <Link to="/dashboard" className="btn-primary">
-                  Open Dashboard <ArrowRight size={16} />
-                </Link>
+                <Link to="/dashboard" className="btn-primary">Open Dashboard <ArrowRight size={16} /></Link>
               ) : (
-                <button onClick={login} className="btn-primary">
-                  Sign in with Discord <ArrowRight size={16} />
-                </button>
+                <button onClick={login} className="btn-primary">Sign in with Discord <ArrowRight size={16} /></button>
               )}
               <a href={ADD_BOT_URL} target="_blank" rel="noreferrer" className="btn-ghost">
                 <img src="/logo.png" alt="" className="h-4 w-4 rounded" /> Add to Server
               </a>
-              <button onClick={() => scrollTo('commands')} className="btn-ghost">
-                Browse commands
-              </button>
+              <button onClick={() => scrollTo('commands')} className="btn-ghost">Browse commands</button>
             </div>
 
             <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted">
-              <span className="inline-flex items-center gap-1.5">
-                <Command size={13} className="text-accent" /> {TOTAL_COMMANDS} commands
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <Slash size={13} className="text-accent" /> {TOTAL_SLASH} slash variants
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <Shield size={13} className="text-accent" /> Admin permission only
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <Clock size={13} className="text-accent" /> Setup in 60 seconds
-              </span>
+              <span className="inline-flex items-center gap-1.5"><Command size={13} className="text-accent" /> {TOTAL_COMMANDS} commands</span>
+              <span className="inline-flex items-center gap-1.5"><Slash size={13} className="text-accent" /> {TOTAL_SLASH} slash variants</span>
+              <span className="inline-flex items-center gap-1.5"><Shield size={13} className="text-accent" /> Admin permission only</span>
+              <span className="inline-flex items-center gap-1.5"><Clock size={13} className="text-accent" /> Setup in 60 seconds</span>
             </div>
           </motion.div>
 
@@ -121,24 +101,18 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ---------- MARQUEE ---------- */}
       <section className="border-b border-edge bg-panel/40 py-6">
         <div className="marquee-mask">
           <div className="marquee-track animate-marquee">
             {[...MARQUEE_COMMANDS, ...MARQUEE_COMMANDS].map((name, i) => (
-              <span
-                key={name + i}
-                className="mr-3 whitespace-nowrap rounded-xl border border-edge bg-surface/60 px-4 py-2 font-mono text-xs text-muted"
-              >
-                &gt;{name} <span className="text-white/25">/</span>
-                <span className="text-accent/70">/{name}</span>
+              <span key={name + i} className="mr-3 whitespace-nowrap rounded-xl border border-edge bg-surface/60 px-4 py-2 font-mono text-xs text-muted">
+                &gt;{name} <span className="text-white/25">/</span><span className="text-accent/70">/{name}</span>
               </span>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ---------- FEATURES ---------- */}
       <section className="mx-auto max-w-7xl px-5 py-24">
         <div className="max-w-2xl">
           <span className="inline-flex items-center gap-2 rounded-full border border-edge px-3 py-1 text-xs text-muted">
@@ -168,12 +142,10 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ---------- COMMAND LIBRARY ---------- */}
       <div className="border-y border-edge bg-panel/40">
         <CommandExplorer />
       </div>
 
-      {/* ---------- HOW IT WORKS ---------- */}
       <section className="mx-auto max-w-7xl px-5 py-24">
         <h2 className="font-display text-3xl font-bold md:text-4xl">Three steps. That's it.</h2>
         <p className="mt-3 text-muted">No config files, no self-hosting, no dependencies.</p>
@@ -199,7 +171,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ---------- LEADERBOARD ---------- */}
       {topUsers.length > 0 && (
         <section className="border-y border-edge bg-panel/40">
           <div className="mx-auto max-w-7xl px-5 py-24">
@@ -222,9 +193,7 @@ export default function Home() {
                   transition={{ delay: i * 0.04 }}
                   className="card flex items-center gap-4 p-4"
                 >
-                  <span className={'font-display w-8 text-lg font-bold ' + (i === 0 ? 'text-amber-300' : 'text-muted')}>
-                    #{i + 1}
-                  </span>
+                  <span className={'font-display w-8 text-lg font-bold ' + (i === 0 ? 'text-amber-300' : 'text-muted')}>#{i + 1}</span>
                   <Avatar src={u.avatar || avatarUrl(u.id, null)} alt={u.name} />
                   <span className="flex-1 truncate font-medium">{u.name}</span>
                   <Badge tone="purple">{nf(u.count)} cmds</Badge>
@@ -235,10 +204,8 @@ export default function Home() {
         </section>
       )}
 
-      {/* ---------- PRICING ---------- */}
       <PricingSection />
 
-      {/* ---------- SOCIAL PROOF ---------- */}
       <section className="border-y border-edge bg-panel/40">
         <div className="mx-auto max-w-7xl px-5 py-24">
           <h2 className="font-display text-3xl font-bold md:text-4xl">What people say</h2>
@@ -268,28 +235,20 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ---------- FAQ ---------- */}
       <Faq />
 
-      {/* ---------- FINAL CTA ---------- */}
       <section className="border-t border-edge">
         <div className="mx-auto max-w-7xl px-5 py-24">
           <div className="card relative overflow-hidden p-12 text-center">
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-accent/10 to-transparent" />
             <div className="pointer-events-none absolute -bottom-24 left-1/2 h-64 w-96 -translate-x-1/2 rounded-full bg-accent/20 blur-[100px]" />
             <h2 className="relative font-display text-4xl font-bold glow-text">Ready to nuke?</h2>
-            <p className="relative mt-3 text-muted">
-              Sign in with Discord, pick a server, and take control in under a minute.
-            </p>
+            <p className="relative mt-3 text-muted">Sign in with Discord, pick a server, and take control in under a minute.</p>
             <div className="relative mt-8 flex flex-wrap justify-center gap-3">
               {user ? (
-                <Link to="/dashboard" className="btn-primary">
-                  Go to Dashboard <ArrowRight size={16} />
-                </Link>
+                <Link to="/dashboard" className="btn-primary">Go to Dashboard <ArrowRight size={16} /></Link>
               ) : (
-                <button onClick={login} className="btn-primary">
-                  Sign in with Discord <ArrowRight size={16} />
-                </button>
+                <button onClick={login} className="btn-primary">Sign in with Discord <ArrowRight size={16} /></button>
               )}
               <a href={ADD_BOT_URL} target="_blank" rel="noreferrer" className="btn-ghost">
                 <img src="/logo.png" alt="" className="h-4 w-4 rounded" /> Add to Server
