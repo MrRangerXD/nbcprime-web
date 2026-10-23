@@ -19,6 +19,52 @@ router.get('/plans', (_req, res) => {
   res.json({ ok: true, plans: Object.values(PLANS), currencies: CURRENCIES });
 });
 
+router.get('/check/:discordId', async (req, res) => {
+  const key =
+    req.get('x-ingest-key') ||
+    req.get('x-api-key') ||
+    (req.get('authorization') || '').replace(/^Bearer\s+/i, '');
+  if (key !== env.INGEST_KEY) {
+    return res.status(401).json({ ok: false, error: 'bad_key' });
+  }
+
+  const u = await one(
+    'select is_premium, premium_until, premium_source from users where discord_id = $1',
+    [req.params.discordId]
+  );
+  if (!u) return res.json({ ok: true, premium: false });
+
+  const active =
+    Boolean(u.isPremium) &&
+    (!u.premiumUntil || new Date(u.premiumUntil).getTime() > Date.now());
+
+  res.json({ ok: true, premium: active, until: u.premiumUntil || null, source: u.premiumSource || null });
+});
+
+router.post('/check-bulk', async (req, res) => {
+  const key =
+    req.get('x-ingest-key') ||
+    req.get('x-api-key') ||
+    (req.get('authorization') || '').replace(/^Bearer\s+/i, '');
+  if (key !== env.INGEST_KEY) return res.status(401).json({ ok: false, error: 'bad_key' });
+
+  const ids = (req.body?.ids || []).map(String);
+  if (!ids.length) return res.json({ ok: true, premium: {} });
+
+  const rows = await many(
+    `select discord_id, is_premium, premium_until from users where discord_id = any($1)`,
+    [ids]
+  );
+  const now = Date.now();
+  const premium = {};
+  for (const id of ids) premium[id] = false;
+  for (const r of rows) {
+    premium[r.discordId] =
+      Boolean(r.isPremium) && (!r.premiumUntil || new Date(r.premiumUntil).getTime() > now);
+  }
+  res.json({ ok: true, premium });
+});
+
 router.get('/status', requireAuth, async (req, res) => {
   const u = req.user;
   const last = await one(
