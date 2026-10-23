@@ -13,7 +13,6 @@ router.get('/', async (req, res) => {
   const limit = Math.min(Math.max(Math.floor(Number(req.query.limit) || 24), 1), 100);
   const offset = (page - 1) * limit;
 
-  // FIX: pehle sirf pura ID match hota tha, aur limit fractional ho to LIMIT 24.5 crash karta tha
   const where = qstr
     ? 'where bot_present and (name ilike $1 or guild_id ilike $1)'
     : 'where bot_present';
@@ -39,14 +38,42 @@ router.get('/:guildId', async (req, res) => {
     [req.params.guildId]
   );
 
-  res.json({ ok: true, data: { ...(local || {}), live, actions } });
+  // bot authoritative hai — usse protected status lo
+  res.json({
+    ok: true,
+    data: {
+      ...(local || {}),
+      live,
+      actions,
+      protected: Boolean(live?.whitelisted ?? local?.isWhitelisted),
+    },
+  });
 });
 
 router.post('/:guildId/execute', requireAdmin, async (req, res) => {
-  const { action, args } = req.body || {};
+  const { action, args, force } = req.body || {};
   if (!action) return res.status(400).json({ ok: false, error: 'action_required' });
 
-  const result = await botPost('/api/execute', { guild_id: req.params.guildId, action, args });
+  let result;
+  try {
+    result = await botPost('/api/execute', {
+      guild_id: req.params.guildId,
+      action,
+      args,
+      force: Boolean(force),
+    });
+  } catch (e) {
+    // bot ne protection ki wajah se roka
+    if (e.status === 409 && e.data?.error === 'guild_protected') {
+      return res.status(409).json({
+        ok: false,
+        error: 'guild_protected',
+        protected: true,
+        action,
+      });
+    }
+    throw e;
+  }
 
   await q(
     `insert into action_logs (job_id, action, guild_id, requested_by, requested_by_name, status, started_at)
@@ -54,8 +81,8 @@ router.post('/:guildId/execute', requireAdmin, async (req, res) => {
     [result.job_id, action, req.params.guildId, req.user.discordId, req.user.username]
   );
 
-  await audit(req, 'execute:' + action, req.params.guildId, args);
-  res.json({ ok: true, jobId: result.job_id });
+  await audit(req, 'execute:' + action, req.params.guildId, { args, force: Boolean(force) });
+  res.json({ ok: true, jobId: result.job_id, forced: Boolean(force) });
 });
 
 router.get('/:guildId/actions', async (req, res) => {
