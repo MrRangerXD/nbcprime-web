@@ -10,11 +10,13 @@ router.use(requireAuth);
 router.get('/', async (req, res) => {
   const filters = [];
   const params = [];
-  if (req.query.guildId) { params.push(req.query.guildId); filters.push(`guild_id = $${params.length}`); }
-  if (req.query.status) { params.push(req.query.status); filters.push(`status = $${params.length}`); }
-  const where = filters.length ? 'where ' + filters.join(' and ') : '';
 
+  if (req.query.guildId) { params.push(req.query.guildId); filters.push(`guild_id = $${params.length}`); }
+  if (req.query.status)  { params.push(req.query.status);  filters.push(`status = $${params.length}`); }
+
+  const where = filters.length ? 'where ' + filters.join(' and ') : '';
   const rows = await many(`select * from giveaways ${where} order by created_at desc limit 100`, params);
+
   res.json({ ok: true, data: rows });
 });
 
@@ -38,29 +40,33 @@ router.post('/', requireAdmin, async (req, res) => {
   const doc = await one(
     `insert into giveaways
       (guild_id, guild_name, channel_id, prize, winners_count, host_id, host_name, ends_at, status)
-     values ($1,$2,$3,$4,$5,$6,$7, now() + make_interval(mins => $8), 'active')
+     values ($1,$2,$3,$4,$5,$6,$7, now() + make_interval(mins => $8::int), 'active')
      returning *`,
     [guildId, guild ? guild.name : null, channelId || null, prize, Number(winners),
      req.user.discordId, req.user.username, Number(minutes)]
   );
 
   await audit(req, 'giveaway:create', guildId, { prize, minutes, winners });
-  res.json({ ok: true, data: doc, jobId: result.job_id });
+  res.json({ ok: true, data: doc, jobId: result.data?.job_id ?? null });
 });
 
 router.post('/:id/end', requireAdmin, async (req, res) => {
   const g = await one('select * from giveaways where id = $1', [req.params.id]);
   if (!g) return res.status(404).json({ ok: false, error: 'not_found' });
 
+  const messageId = g.messageId || req.body?.messageId;
+  if (!messageId) return res.status(400).json({ ok: false, error: 'message_id_required' });
+
   const r = await botPost('/api/execute', {
     guild_id: g.guildId,
     action: 'giveaway_end',
-    args: { message_id: g.messageId || req.body.messageId },
+    args: { message_id: messageId },
   });
 
   await q(`update giveaways set status = 'ended', ended_at = now() where id = $1`, [req.params.id]);
   await audit(req, 'giveaway:end', g.guildId);
-  res.json({ ok: true, jobId: r.job_id });
+
+  res.json({ ok: true, jobId: r.data?.job_id ?? null });
 });
 
 router.delete('/:id', requireAdmin, async (req, res) => {
