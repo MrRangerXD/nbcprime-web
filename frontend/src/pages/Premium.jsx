@@ -232,7 +232,7 @@ export default function Premium() {
             </div>
 
             <p className="mt-3 text-xs text-muted">
-              Auto-checking every 15s. Exact amount zaroor bhejo — usi se match hota hai.
+              Auto-checking every 15 seconds. Send the exact amount shown — it is matched on-chain.
             </p>
           </div>
         </div>
@@ -241,8 +241,8 @@ export default function Premium() {
       <div className="card p-5 text-sm text-muted">
         <div className="font-display font-semibold text-white">How it works</div>
         <p className="mt-1">
-          Plan choose karo, QR scan karo ya address copy karo, exact crypto amount bhejo.
-          Chain confirm hone par premium automatically activate ho jata hai — admin ki zaroorat nahi.
+          Pick a plan, scan the QR or copy the address, then send the exact crypto amount. Once the
+          transaction confirms on-chain, Premium activates automatically — no admin approval needed.
         </p>
       </div>
     </div>
