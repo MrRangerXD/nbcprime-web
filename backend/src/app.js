@@ -17,13 +17,20 @@ import adminRoutes from './routes/admin.js';
 import ingestRoutes from './routes/ingest.js';
 import premiumRoutes from './routes/premium.js';
 
+// inpe session dhundhne ka koi matlab nahi
+const NO_AUTH_PREFIXES = ['/api/public', '/api/ingest'];
+
 export function createApp() {
   const app = express();
   app.set('trust proxy', 1);
 
-  // ---- global middleware PEHLE ----
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
-  app.use(cors({ origin: env.FRONTEND_URL.replace(/\/$/, ''), credentials: true }));
+  app.use(cors({
+    origin: env.FRONTEND_URL,
+    credentials: true,
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  }));
   app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser());
   app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev'));
@@ -31,9 +38,16 @@ export function createApp() {
   app.use('/api', rateLimit({ windowMs: 60000, max: 300, standardHeaders: true }));
   app.use('/api/auth', rateLimit({ windowMs: 60000, max: 60 }));
 
-  app.use(attachUser);
+  // FIX: public/ingest pe DB query skip
+  app.use((req, res, next) => {
+    if (req.path === '/api/health' || NO_AUTH_PREFIXES.some((p) => req.path.startsWith(p))) {
+      return next();
+    }
+    return attachUser(req, res, next);
+  });
 
-  // ---- routes BAAD ME ----
+  app.get('/api/health', (_req, res) => res.json({ ok: true, ts: Date.now() }));
+
   app.use('/api/auth', authRoutes);
   app.use('/api/public', publicRoutes);
   app.use('/api/me', meRoutes);
@@ -42,13 +56,15 @@ export function createApp() {
   app.use('/api/giveaways', giveawayRoutes);
   app.use('/api/admin', adminRoutes);
   app.use('/api/ingest', ingestRoutes);
-  app.use('/api/premium', premiumRoutes);   // <-- yahan
+  app.use('/api/premium', premiumRoutes);
 
-  app.get('/api/health', (_req, res) => res.json({ ok: true, ts: Date.now() }));
   app.use((_req, res) => res.status(404).json({ ok: false, error: 'not_found' }));
   app.use((err, _req, res, _next) => {
     console.error('[error]', err);
-    res.status(err.status || 500).json({ ok: false, error: env.NODE_ENV === 'production' ? 'internal_error' : err.message });
+    res.status(err.status || 500).json({
+      ok: false,
+      error: env.NODE_ENV === 'production' ? 'internal_error' : err.message,
+    });
   });
 
   return app;
