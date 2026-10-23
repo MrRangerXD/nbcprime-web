@@ -9,9 +9,14 @@ export const pool = new Pool({
   max: env.DB_POOL_MAX,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 15000,
-  // FIX: atki query pura process na pakde
-  statement_timeout: env.DB_STATEMENT_TIMEOUT,
-  query_timeout: env.DB_STATEMENT_TIMEOUT,
+
+  // FIX: query_timeout client-side hai — connection ko kabhi nahi todta
+  query_timeout: env.DB_QUERY_TIMEOUT,
+
+  // FIX: statement_timeout sirf tab jab explicitly on karo (Supavisor startup
+  // parameter reject kare to 0 kar dena)
+  ...(env.DB_STATEMENT_TIMEOUT > 0 ? { statement_timeout: env.DB_STATEMENT_TIMEOUT } : {}),
+
   allowExitOnIdle: true,
 });
 
