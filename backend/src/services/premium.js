@@ -4,7 +4,6 @@ export async function grantPremium(discordId, days, source) {
   await q(
     `update users
         set is_premium = true,
-            premium_source = $3,
             premium_until = case
               -- lifetime purchase -> clear the expiry
               when $2::int is null then null
