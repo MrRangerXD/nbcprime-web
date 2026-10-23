@@ -1,6 +1,6 @@
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { Menu, X, LogIn, Tag } from 'lucide-react';
+import { Menu, X, LogIn } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { avatarUrl } from '../lib/format';
 
@@ -77,14 +77,10 @@ export default function Navbar() {
               {l.label}
             </Link>
           ))}
-          <button onClick={goPricing} className="block py-2.5 text-sm text-muted">
-            Pricing
-          </button>
+          <button onClick={goPricing} className="block py-2.5 text-sm text-muted">Pricing</button>
           <div className="mt-3">
             {user ? (
-              <Link to="/dashboard" onClick={() => setOpen(false)} className="btn-ghost w-full">
-                Dashboard
-              </Link>
+              <Link to="/dashboard" onClick={() => setOpen(false)} className="btn-ghost w-full">Dashboard</Link>
             ) : (
               <button onClick={login} className="btn-primary w-full">
                 <LogIn size={16} /> Sign in with Discord
