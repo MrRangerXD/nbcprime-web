@@ -6,6 +6,8 @@ export const ADDRESSES = {
 };
 
 const DECIMALS = { LTC: 8, SOL: 6 };
+// FIX: SOL ka 0.0005 tolerance amount (0.002 SOL) ka 25% tha -> galat tx match
+const ABS_TOLERANCE = { LTC: 0.0002, SOL: 0.00002 };
 const SOL_RPC = process.env.SOL_RPC_URL || 'https://api.mainnet-beta.solana.com';
 
 // FIX: SOL verify pe 25 alag-alag RPC call jaati thi, public endpoint rate-limit kar deta tha
