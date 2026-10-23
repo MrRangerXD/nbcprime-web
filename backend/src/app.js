@@ -15,11 +15,13 @@ import lbRoutes from './routes/leaderboard.js';
 import giveawayRoutes from './routes/giveaways.js';
 import adminRoutes from './routes/admin.js';
 import ingestRoutes from './routes/ingest.js';
+import premiumRoutes from './routes/premium.js';
 
 export function createApp() {
   const app = express();
   app.set('trust proxy', 1);
 
+  app.use('/api/premium', premiumRoutes);
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   app.use(cors({ origin: env.FRONTEND_URL, credentials: true }));
   app.use(express.json({ limit: '1mb' }));
