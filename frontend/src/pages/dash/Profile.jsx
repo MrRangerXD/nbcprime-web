@@ -15,7 +15,7 @@ export default function Profile() {
   return (
     <div className="space-y-6">
       <Card className="flex flex-wrap items-center gap-5">
-        <img src={avatarUrl(user.id, user.avatar)} alt="" className="h-20 w-20 rounded-2xl border border-edge" />
+        <img src={avatarUrl(user?.id, user?.avatar)} alt="" className="h-20 w-20 rounded-2xl border border-edge" />
         <div className="flex-1">
           <h1 className="font-display text-2xl font-bold">{user.globalName || user.username}</h1>
           <p className="text-sm text-muted">@{user.username} — {user.id}</p>
