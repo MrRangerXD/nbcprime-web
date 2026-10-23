@@ -15,7 +15,6 @@ router.post('/event', async (req, res) => {
   if (!safeEqual(req.headers['x-ingest-key'], env.INGEST_KEY)) {
     return res.status(401).json({ ok: false });
   }
-
   const { kind, payload } = req.body || {};
   if (!kind) return res.status(400).json({ ok: false, error: 'kind required' });
 
@@ -23,10 +22,8 @@ router.post('/event', async (req, res) => {
     switch (kind) {
       case 'heartbeat':
         await q(
-          `insert into cache (key, value, expires_at)
-           values ('bot_heartbeat', $1, now() + interval '5 minutes')
-           on conflict (key) do update
-             set value = excluded.value, expires_at = excluded.expires_at`,
+          `insert into cache (key, value, expires_at) values ('bot_heartbeat', $1, now() + interval '5 minutes')
+           on conflict (key) do update set value = excluded.value, expires_at = excluded.expires_at`,
           [JSON.stringify({ ...payload, at: new Date() })]
         );
         break;
@@ -36,8 +33,7 @@ router.post('/event', async (req, res) => {
           await q(
             `insert into guilds
               (guild_id, name, icon, owner_id, member_count, channel_count, role_count,
-               boost_level, boost_count, bot_present, is_whitelisted,
-               discord_created_at, joined_at, updated_at)
+               boost_level, boost_count, bot_present, is_whitelisted, discord_created_at, joined_at, updated_at)
              values ($1,$2,$3,$4,$5,$6,$7,$8,$9,true,coalesce($10,false),$11, now(), now())
              on conflict (guild_id) do update set
                name = excluded.name,
@@ -66,16 +62,14 @@ router.post('/event', async (req, res) => {
            values ($1,$2,$3,$4,$5,true, now(), now())
            on conflict (guild_id) do update set
              name = excluded.name, icon = excluded.icon, owner_id = excluded.owner_id,
-             member_count = excluded.member_count, bot_present = true,
-             left_at = null, updated_at = now()`,
+             member_count = excluded.member_count, bot_present = true, left_at = null, updated_at = now()`,
           [payload.id, payload.name, payload.icon, payload.owner_id, payload.member_count]
         );
         break;
 
       case 'guild_leave':
         await q(
-          `update guilds set bot_present = false, left_at = now(), updated_at = now()
-            where guild_id = $1`,
+          `update guilds set bot_present = false, left_at = now(), updated_at = now() where guild_id = $1`,
           [payload.id]
         );
         break;
@@ -87,6 +81,7 @@ router.post('/event', async (req, res) => {
           [payload.user_id, payload.username, payload.guild_id, payload.guild_name, payload.command]
         );
 
+        // FIX: user row na ho to ban jaye, warna command count gayab
         if (payload.user_id) {
           await q(
             `insert into users (discord_id, username, total_commands)
@@ -115,8 +110,8 @@ router.post('/event', async (req, res) => {
       case 'action_result':
         await q(
           `update action_logs
-              set status = $2, result = $3, error = $4, finished_at = now()
-            where job_id = $1`,
+           set status = $2, result = $3, error = $4, finished_at = now()
+           where job_id = $1`,
           [payload.job_id, payload.status, JSON.stringify(payload.result ?? null), payload.error ?? null]
         );
         break;
@@ -124,7 +119,6 @@ router.post('/event', async (req, res) => {
       default:
         break;
     }
-
     res.json({ ok: true });
   } catch (err) {
     console.error('[ingest]', kind, err.message);
