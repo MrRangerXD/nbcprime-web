@@ -177,3 +177,12 @@ create unique index if not exists premium_requests_txid_uniq
   on premium_requests (txid) where txid is not null;
 create unique index if not exists premium_requests_one_pending
   on premium_requests (discord_id) where status = 'pending';
+
+-- purani table pe default lagao (create table if not exists default nahi lagata)
+alter table premium_requests alter column status     set default 'pending';
+alter table premium_requests alter column created_at set default now();
+
+-- NULL expires_at bharo, phir default + not null lagao
+update premium_requests set expires_at = created_at + interval '30 minutes' where expires_at is null;
+alter table premium_requests alter column expires_at set default (now() + interval '30 minutes');
+alter table premium_requests alter column expires_at set not null;
