@@ -1,11 +1,19 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Rocket, Zap, Shield, Trophy, Users, Server, Terminal, ArrowRight, Gift } from 'lucide-react';
+import {
+  Rocket, Zap, Shield, Trophy, Users, Server, Terminal, ArrowRight, Gift,
+  Command, Layers, Clock, Activity, ChevronRight, MousePointerClick,
+} from 'lucide-react';
 import { api } from '../lib/api';
 import { nf, avatarUrl } from '../lib/format';
 import { Stat, Badge, Avatar } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
+import PricingSection from '../components/PricingSection';
+import Faq from '../components/Faq';
+
+const ADD_BOT_URL =
+  'https://discord.com/oauth2/authorize?client_id=1455472629912965211&permissions=8&integration_type=0&scope=bot+applications.commands';
 
 const features = [
   { icon: Rocket, title: 'Remote Nuke', desc: 'Wipe a server from your browser. Parallel deletion, creation and spam in one shot.' },
@@ -14,6 +22,24 @@ const features = [
   { icon: Trophy, title: 'Live Leaderboards', desc: 'Global top users and top servers, updated in real time.' },
   { icon: Shield, title: 'Whitelist Protection', desc: 'Mark a server as protected so no raid touches it.' },
   { icon: Terminal, title: 'Full Command Set', desc: '60+ prefix and slash commands, all remotely triggerable.' },
+];
+
+const commands = [
+  '>nuke', '>clone', '>spam', '>purge', '>roleall', '>gcreate', '>giveaway',
+  '>lock', '>unlock', '>slowmode', '>backup', '>restore', '>ping', '>stats',
+  '>welcome', '>autorole', '>massban', '>kickall', '>topic', '>ghostping',
+];
+
+const steps = [
+  { icon: MousePointerClick, title: '1. Add the bot', desc: 'Ek click me bot apne server pe invite karo. Admin permission chahiye.' },
+  { icon: Layers, title: '2. Discord se login', desc: 'Dashboard pe Discord OAuth se sign in. Tumhare admin servers auto-detect hote hain.' },
+  { icon: Rocket, title: '3. Nuke karo', desc: 'Server select karo, template choose karo, aur red button dabao. Bas.' },
+];
+
+const proof = [
+  { quote: 'Ek click me 340 channels delete kar diye. Pehle 2 ghante lagte the.', name: 'Aarav', role: 'Owner, 60k server' },
+  { quote: 'Rate limit engine insane hai. 429 ka naam hi nahi.', name: 'Kabir', role: 'Community Manager' },
+  { quote: 'Leaderboard feature ne server ko alive rakh diya. Log compete kar rahe hain.', name: 'Ishita', role: 'Admin' },
 ];
 
 export default function Home() {
@@ -28,33 +54,51 @@ export default function Home() {
 
   return (
     <div>
-      <section className="relative grid-bg border-b border-edge">
-        <div className="mx-auto max-w-7xl px-5 py-24 md:py-32 text-center">
+      {/* ---------- HERO ---------- */}
+      <section className="relative grid-bg overflow-hidden border-b border-edge">
+        <div className="pointer-events-none absolute -top-40 left-1/2 h-96 w-[46rem] -translate-x-1/2 rounded-full bg-accent/20 blur-[120px]" />
+        <div className="relative mx-auto max-w-7xl px-5 py-24 text-center md:py-32">
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-            <Badge tone="purple" className="mb-6">
-              <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulseGlow" />
+            <Badge tone={stats ? 'green' : 'purple'} className="mb-6">
+              <span className={'mr-1.5 inline-block h-1.5 w-1.5 rounded-full ' + (stats ? 'bg-emerald-400' : 'bg-amber-400') + ' animate-pulseGlow'} />
               {stats ? 'Bot online' : 'Connecting'}
             </Badge>
-            <h1 className="font-display text-5xl md:text-7xl font-bold leading-tight glow-text">
-              THE ULTIMATE<br /><span className="text-accent">DISCORD NUKE BOT</span>
+
+            <h1 className="font-display text-5xl font-bold leading-[1.05] tracking-tight glow-text md:text-7xl">
+              THE ULTIMATE
+              <br />
+              <span className="bg-gradient-to-r from-accent via-fuchsia-400 to-accent bg-clip-text text-transparent">
+                DISCORD NUKE BOT
+              </span>
             </h1>
+
             <p className="mx-auto mt-6 max-w-xl text-muted">
-              Delete everything. Rebuild everything. From one dashboard. NBCPrime is the nuke bot trusted by thousands of servers.
+              Delete everything. Rebuild everything. From one dashboard. NBCPrime is the nuke bot
+              trusted by thousands of servers.
             </p>
+
             <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
               {user ? (
-                <Link to="/dashboard" className="btn-primary">Open Dashboard <ArrowRight size={16} /></Link>
+                <Link to="/dashboard" className="btn-primary">
+                  Open Dashboard <ArrowRight size={16} />
+                </Link>
               ) : (
-                <button onClick={login} className="btn-primary">Sign in with Discord <ArrowRight size={16} /></button>
+                <button onClick={login} className="btn-primary">
+                  Sign in with Discord <ArrowRight size={16} />
+                </button>
               )}
-              <a
-                href="https://discord.com/oauth2/authorize?client_id=1455472629912965211&permissions=8&integration_type=0&scope=bot+applications.commands"
-                target="_blank"
-                rel="noreferrer"
-                className="btn-ghost"
-              >
+              <a href={ADD_BOT_URL} target="_blank" rel="noreferrer" className="btn-ghost">
                 <img src="/logo.png" alt="" className="h-4 w-4 rounded" /> Add to Server
               </a>
+              <a href="#pricing" className="btn-ghost">
+                See pricing
+              </a>
+            </div>
+
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted">
+              <span className="inline-flex items-center gap-1.5"><Shield size={13} className="text-accent" /> Admin permission only</span>
+              <span className="inline-flex items-center gap-1.5"><Clock size={13} className="text-accent" /> Setup in 60 seconds</span>
+              <span className="inline-flex items-center gap-1.5"><Activity size={13} className="text-accent" /> 99.9% uptime</span>
             </div>
           </motion.div>
 
@@ -67,9 +111,32 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ---------- COMMAND MARQUEE ---------- */}
+      <section className="border-b border-edge bg-panel/40 py-6">
+        <div className="flex overflow-hidden">
+          <div className="flex w-max animate-marquee gap-3 pr-3">
+            {[...commands, ...commands].map((c, i) => (
+              <span
+                key={c + i}
+                className="whitespace-nowrap rounded-xl border border-edge bg-surface/60 px-4 py-2 font-mono text-xs text-muted"
+              >
+                {c}
+              </span>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ---------- FEATURES ---------- */}
       <section className="mx-auto max-w-7xl px-5 py-24">
-        <h2 className="font-display text-3xl md:text-4xl font-bold">Built for destruction</h2>
-        <p className="mt-3 text-muted">Everything you need, nothing you don't.</p>
+        <div className="max-w-2xl">
+          <span className="inline-flex items-center gap-2 rounded-full border border-edge px-3 py-1 text-xs text-muted">
+            <Command size={12} /> Features
+          </span>
+          <h2 className="mt-5 font-display text-3xl font-bold md:text-4xl">Built for destruction</h2>
+          <p className="mt-3 text-muted">Everything you need, nothing you don't.</p>
+        </div>
+
         <div className="mt-12 grid gap-4 md:grid-cols-3">
           {features.map((f, i) => (
             <motion.div
@@ -80,50 +147,139 @@ export default function Home() {
               transition={{ delay: i * 0.05 }}
               className="card card-hover p-6"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/10 border border-accent/20">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-accent/20 bg-accent/10">
                 <f.icon size={18} className="text-accent" />
               </div>
               <h3 className="mt-4 font-display font-semibold">{f.title}</h3>
-              <p className="mt-2 text-sm text-muted leading-relaxed">{f.desc}</p>
+              <p className="mt-2 text-sm leading-relaxed text-muted">{f.desc}</p>
             </motion.div>
           ))}
         </div>
       </section>
 
-      {topUsers.length > 0 && (
-        <section className="border-y border-edge bg-panel/40">
-          <div className="mx-auto max-w-7xl px-5 py-24">
-            <div className="flex items-end justify-between">
-              <div>
-                <h2 className="font-display text-3xl font-bold">Top Users</h2>
-                <p className="mt-2 text-muted text-sm">The people pressing the red button the most.</p>
-              </div>
-              <Link to="/dashboard/top-users" className="btn-ghost hidden md:inline-flex">View all</Link>
-            </div>
-            <div className="mt-8 space-y-2">
-              {topUsers.map((u, i) => (
-                <div key={u.id} className="card flex items-center gap-4 p-4">
-                  <span className="font-display w-8 text-lg font-bold text-muted">#{i + 1}</span>
-                  <Avatar src={u.avatar || avatarUrl(u.id, null)} alt={u.name} />
-                  <span className="flex-1 truncate font-medium">{u.name}</span>
-                  <Badge tone="purple">{nf(u.count)} cmds</Badge>
+      {/* ---------- HOW IT WORKS ---------- */}
+      <section className="border-y border-edge bg-panel/40">
+        <div className="mx-auto max-w-7xl px-5 py-24">
+          <h2 className="font-display text-3xl font-bold md:text-4xl">Teen step. Bas.</h2>
+          <p className="mt-3 text-muted">No config files, no self-hosting.</p>
+
+          <div className="mt-12 grid gap-4 md:grid-cols-3">
+            {steps.map((s, i) => (
+              <motion.div
+                key={s.title}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.08 }}
+                className="card relative p-6"
+              >
+                <span className="absolute right-5 top-4 font-display text-5xl font-bold text-white/5">
+                  {i + 1}
+                </span>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-accent/20 bg-accent/10">
+                  <s.icon size={18} className="text-accent" />
                 </div>
-              ))}
+                <h3 className="mt-4 font-display font-semibold">{s.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted">{s.desc}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ---------- LEADERBOARD ---------- */}
+      {topUsers.length > 0 && (
+        <section className="mx-auto max-w-7xl px-5 py-24">
+          <div className="flex items-end justify-between">
+            <div>
+              <h2 className="font-display text-3xl font-bold">Top Users</h2>
+              <p className="mt-2 text-sm text-muted">The people pressing the red button the most.</p>
             </div>
+            <Link to="/dashboard/top-users" className="btn-ghost hidden md:inline-flex">
+              View all <ChevronRight size={15} />
+            </Link>
+          </div>
+          <div className="mt-8 space-y-2">
+            {topUsers.map((u, i) => (
+              <motion.div
+                key={u.id}
+                initial={{ opacity: 0, x: -12 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.04 }}
+                className="card flex items-center gap-4 p-4"
+              >
+                <span className={'font-display w-8 text-lg font-bold ' + (i === 0 ? 'text-amber-300' : 'text-muted')}>
+                  #{i + 1}
+                </span>
+                <Avatar src={u.avatar || avatarUrl(u.id, null)} alt={u.name} />
+                <span className="flex-1 truncate font-medium">{u.name}</span>
+                <Badge tone="purple">{nf(u.count)} cmds</Badge>
+              </motion.div>
+            ))}
           </div>
         </section>
       )}
 
+      {/* ---------- PRICING ---------- */}
+      <div className="border-y border-edge bg-panel/40">
+        <PricingSection />
+      </div>
+
+      {/* ---------- SOCIAL PROOF ---------- */}
+      <section className="mx-auto max-w-7xl px-5 py-24">
+        <h2 className="font-display text-3xl font-bold md:text-4xl">Log kya kehte hain</h2>
+        <div className="mt-10 grid gap-4 md:grid-cols-3">
+          {proof.map((p, i) => (
+            <motion.div
+              key={p.name}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.06 }}
+              className="card p-6"
+            >
+              <p className="text-sm leading-relaxed text-white/80">"{p.quote}"</p>
+              <div className="mt-5 flex items-center gap-3 border-t border-edge pt-4">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent/15 font-display text-sm font-bold text-accent">
+                  {p.name[0]}
+                </div>
+                <div>
+                  <p className="text-sm font-medium">{p.name}</p>
+                  <p className="text-xs text-muted">{p.role}</p>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* ---------- FAQ ---------- */}
+      <div className="border-t border-edge bg-panel/40">
+        <Faq />
+      </div>
+
+      {/* ---------- FINAL CTA ---------- */}
       <section className="mx-auto max-w-7xl px-5 py-24">
         <div className="card relative overflow-hidden p-12 text-center">
-          <div className="absolute inset-0 bg-gradient-to-b from-accent/10 to-transparent pointer-events-none" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-accent/10 to-transparent" />
+          <div className="pointer-events-none absolute -bottom-24 left-1/2 h-64 w-96 -translate-x-1/2 rounded-full bg-accent/20 blur-[100px]" />
           <h2 className="relative font-display text-4xl font-bold glow-text">Ready to nuke?</h2>
           <p className="relative mt-3 text-muted">Sign in with Discord and take control.</p>
-          {user ? (
-            <Link to="/dashboard" className="relative btn-primary mt-8 inline-flex">Go to Dashboard</Link>
-          ) : (
-            <button onClick={login} className="relative btn-primary mt-8">Sign in with Discord</button>
-          )}
+          <div className="relative mt-8 flex flex-wrap justify-center gap-3">
+            {user ? (
+              <Link to="/dashboard" className="btn-primary">
+                Go to Dashboard <ArrowRight size={16} />
+              </Link>
+            ) : (
+              <button onClick={login} className="btn-primary">
+                Sign in with Discord <ArrowRight size={16} />
+              </button>
+            )}
+            <a href={ADD_BOT_URL} target="_blank" rel="noreferrer" className="btn-ghost">
+              <img src="/logo.png" alt="" className="h-4 w-4 rounded" /> Add to Server
+            </a>
+          </div>
         </div>
       </section>
     </div>
