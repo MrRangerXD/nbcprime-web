@@ -13,7 +13,7 @@ router.get('/', async (req, res) => {
   const limit = Math.min(Math.max(Math.floor(Number(req.query.limit) || 24), 1), 100);
   const offset = (page - 1) * limit;
 
-  // FIX: prefix match + clamp (pehle sirf pura ID match karta tha aur LIMIT 24.5 crash karta tha)
+  // FIX: pehle sirf pura ID match hota tha, aur limit fractional ho to LIMIT 24.5 crash karta tha
   const where = qstr
     ? 'where bot_present and (name ilike $1 or guild_id ilike $1)'
     : 'where bot_present';
@@ -47,16 +47,15 @@ router.post('/:guildId/execute', requireAdmin, async (req, res) => {
   if (!action) return res.status(400).json({ ok: false, error: 'action_required' });
 
   const result = await botPost('/api/execute', { guild_id: req.params.guildId, action, args });
-  const jobId = result.data?.job_id ?? null;
 
   await q(
     `insert into action_logs (job_id, action, guild_id, requested_by, requested_by_name, status, started_at)
      values ($1,$2,$3,$4,$5,'queued', now())`,
-    [jobId, action, req.params.guildId, req.user.discordId, req.user.username]
+    [result.job_id, action, req.params.guildId, req.user.discordId, req.user.username]
   );
 
   await audit(req, 'execute:' + action, req.params.guildId, args);
-  res.json({ ok: true, jobId });
+  res.json({ ok: true, jobId: result.job_id });
 });
 
 router.get('/:guildId/actions', async (req, res) => {
@@ -84,7 +83,7 @@ router.delete('/:guildId/whitelist', requireAdmin, async (req, res) => {
 router.post('/:guildId/leave', requireOwner, async (req, res) => {
   const r = await botPost('/api/execute', { guild_id: req.params.guildId, action: 'leave' });
   await audit(req, 'guild:leave', req.params.guildId);
-  res.json({ ok: true, jobId: r.data?.job_id ?? null });
+  res.json({ ok: true, jobId: r.job_id });
 });
 
 export default router;
