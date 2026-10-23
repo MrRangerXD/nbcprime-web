@@ -6,9 +6,13 @@ const { Pool } = pg;
 export const pool = new Pool({
   connectionString: env.DATABASE_URL,
   ssl: env.DB_SSL ? { rejectUnauthorized: false } : false,
-  max: 8,
+  max: env.DB_POOL_MAX,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 15000,
+  // FIX: atki query pura process na pakde
+  statement_timeout: env.DB_STATEMENT_TIMEOUT,
+  query_timeout: env.DB_STATEMENT_TIMEOUT,
+  allowExitOnIdle: true,
 });
 
 pool.on('error', (e) => console.error('[pg] idle client error:', e.message));
