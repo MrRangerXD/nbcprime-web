@@ -10,6 +10,7 @@ create table if not exists users (
   token_expires_at timestamptz,
   is_premium       boolean default false,
   premium_source   text,
+  premium_until    timestamptz,
   is_admin         boolean default false,
   is_banned        boolean default false,
   blacklist_reason text,
@@ -21,6 +22,9 @@ create table if not exists users (
   updated_at       timestamptz default now()
 );
 create index if not exists users_total_commands_idx on users (total_commands desc);
+
+-- purani table ke liye
+alter table users add column if not exists premium_until timestamptz;
 
 create table if not exists guilds (
   guild_id            text primary key,
@@ -137,3 +141,39 @@ create table if not exists cache (
   expires_at timestamptz
 );
 create index if not exists cache_expires_idx on cache (expires_at);
+
+-- ===== premium (ye pehle missing thi) =====
+-- index/constraint names 2026_10_premium_hardening.sql se match karte hain,
+-- taaki wo file idempotent rahe.
+create table if not exists premium_requests (
+  id            uuid primary key default gen_random_uuid(),
+  discord_id    text not null,
+  username      text,
+  plan          text not null,
+  amount_inr    numeric(10,2),
+  amount_usd    numeric(10,4),
+  duration_days integer,
+  currency      text not null,
+  amount_crypto numeric(24,10) not null,
+  pay_address   text not null,
+  txid          text,
+  status        text not null default 'pending',
+  expires_at    timestamptz not null default (now() + interval '30 minutes'),
+  paid_at       timestamptz,
+  reviewed_at   timestamptz,
+  reviewed_by   text,
+  created_at    timestamptz not null default now(),
+  constraint premium_requests_status_chk
+    check (status in ('pending','approved','cancelled','expired')),
+  constraint premium_requests_amount_chk
+    check (amount_crypto > 0)
+);
+
+create index if not exists premium_requests_user_created
+  on premium_requests (discord_id, created_at desc);
+create index if not exists premium_requests_status_expires
+  on premium_requests (status, expires_at);
+create unique index if not exists premium_requests_txid_uniq
+  on premium_requests (txid) where txid is not null;
+create unique index if not exists premium_requests_one_pending
+  on premium_requests (discord_id) where status = 'pending';
