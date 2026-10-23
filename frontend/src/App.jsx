@@ -29,7 +29,6 @@ export default function App() {
         <Route path="/news" element={<Posts type="news" />} />
         <Route path="/post/:slug" element={<PostView />} />
         <Route path="/dashboard/premium" element={<Premium />} />
-        { to: '/dashboard/premium', label: 'Get Premium', icon: Sparkles }
       </Route>
 
       <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
