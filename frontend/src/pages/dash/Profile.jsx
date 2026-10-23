@@ -28,6 +28,12 @@ export default function Profile() {
         <button onClick={logout} className="btn-ghost">Sign out</button>
       </Card>
 
+      {user?.isBanned && (
+        <Card className="border-red-500/30 bg-red-500/[0.06] text-sm text-red-200">
+          <strong>Banned:</strong> {user.banReason || 'No reason given'}
+        </Card>
+      )}
+
       {stats === null ? <Loader /> : stats && (
         <div className="grid gap-4 sm:grid-cols-3">
           <Stat label="Commands Used" value={nf(stats.totalCommands)} />
