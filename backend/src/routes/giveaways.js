@@ -54,10 +54,15 @@ router.post('/:id/end', requireAdmin, async (req, res) => {
   const g = await one('select * from giveaways where id = $1', [req.params.id]);
   if (!g) return res.status(404).json({ ok: false, error: 'not_found' });
 
+  const messageId = g.messageId || req.body?.messageId;
+  if (!messageId) {
+    return res.status(400).json({ ok: false, error: 'message_id_missing' });
+  }
+
   const r = await botPost('/api/execute', {
     guild_id: g.guildId,
     action: 'giveaway_end',
-    args: { message_id: g.messageId || req.body.messageId },
+    args: { message_id: messageId },
   });
 
   await q(`update giveaways set status = 'ended', ended_at = now() where id = $1`, [req.params.id]);
