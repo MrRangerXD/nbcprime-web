@@ -1,6 +1,6 @@
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { Menu, X, LogIn } from 'lucide-react';
+import { Menu, X, LogIn, Tag } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { avatarUrl } from '../lib/format';
 
@@ -13,6 +13,16 @@ const links = [
 export default function Navbar() {
   const { user, login } = useAuth();
   const [open, setOpen] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const goPricing = () => {
+    setOpen(false);
+    const jump = () => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (location.pathname === '/') return jump();
+    navigate('/');
+    setTimeout(jump, 150);
+  };
 
   return (
     <header className="sticky top-0 z-50 border-b border-edge/70 bg-void/80 backdrop-blur-xl">
@@ -31,17 +41,16 @@ export default function Navbar() {
               to={l.to}
               className={({ isActive }) =>
                 'rounded-lg px-3.5 py-2 text-sm transition-colors ' +
-                (isActive ? 'text-white bg-white/5' : 'text-muted hover:text-white')
+                (isActive ? 'bg-white/5 text-white' : 'text-muted hover:text-white')
               }
             >
               {l.label}
             </NavLink>
           ))}
+          <button onClick={goPricing} className="rounded-lg px-3.5 py-2 text-sm text-muted transition-colors hover:text-white">
+            Pricing
+          </button>
         </div>
-
-        <a href="/#pricing" className="rounded-lg px-3.5 py-2 text-sm text-muted transition-colors hover:text-white">
-  Pricing
-</a>
 
         <div className="hidden items-center gap-3 md:flex">
           {user ? (
@@ -56,7 +65,7 @@ export default function Navbar() {
           )}
         </div>
 
-        <button className="md:hidden text-white" onClick={() => setOpen(!open)}>
+        <button className="text-white md:hidden" onClick={() => setOpen(!open)} aria-label="Toggle menu">
           {open ? <X /> : <Menu />}
         </button>
       </nav>
@@ -68,11 +77,18 @@ export default function Navbar() {
               {l.label}
             </Link>
           ))}
+          <button onClick={goPricing} className="block py-2.5 text-sm text-muted">
+            Pricing
+          </button>
           <div className="mt-3">
             {user ? (
-              <Link to="/dashboard" className="btn-ghost w-full">Dashboard</Link>
+              <Link to="/dashboard" onClick={() => setOpen(false)} className="btn-ghost w-full">
+                Dashboard
+              </Link>
             ) : (
-              <button onClick={login} className="btn-primary w-full">Sign in with Discord</button>
+              <button onClick={login} className="btn-primary w-full">
+                <LogIn size={16} /> Sign in with Discord
+              </button>
             )}
           </div>
         </div>
