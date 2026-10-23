@@ -8,6 +8,9 @@ export const ADDRESSES = {
 const DECIMALS = { LTC: 8, SOL: 6 };
 const SOL_RPC = process.env.SOL_RPC_URL || 'https://api.mainnet-beta.solana.com';
 
+// FIX: SOL verify pe 25 alag-alag RPC call jaati thi, public endpoint rate-limit kar deta tha
+const SOL_TX_SCAN_LIMIT = 10;
+
 const round = (n, d) => Number(n.toFixed(d));
 
 let priceCache = { at: 0, data: null };
@@ -52,10 +55,13 @@ async function solRpc(method, params) {
 }
 
 async function findLtc(address, amount, tolerance, sinceMs) {
+  // FIX: BlockCypher naye address pe 404 deta hai -> pehle axios throw kar raha tha
   const { data } = await axios.get(
     `https://api.blockcypher.com/v1/ltc/main/addrs/${address}/full?limit=25`,
-    { timeout: 12000 }
+    { timeout: 12000, validateStatus: (s) => s < 500 }
   );
+  if (!data || data.error) return null;
+
   for (const tx of data.txs || []) {
     const at = new Date(tx.received).getTime();
     if (at < sinceMs - 60_000) continue;
@@ -71,20 +77,30 @@ async function findLtc(address, amount, tolerance, sinceMs) {
 }
 
 async function findSol(address, amount, tolerance, sinceMs) {
-  const sigs = await solRpc('getSignaturesForAddress', [address, { limit: 25 }]);
+  const sigs = await solRpc('getSignaturesForAddress', [address, { limit: SOL_TX_SCAN_LIMIT }]);
+
   for (const s of sigs || []) {
     const at = (s.blockTime || 0) * 1000;
     if (at && at < sinceMs - 60_000) continue;
-    const tx = await solRpc('getTransaction', [
-      s.signature,
-      { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 },
-    ]);
+
+    let tx;
+    try {
+      tx = await solRpc('getTransaction', [
+        s.signature,
+        { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 },
+      ]);
+    } catch {
+      continue; // FIX: ek tx fail hone pe pura verify band na ho
+    }
+
     if (!tx?.meta) continue;
+
     const keys = tx.transaction.message.accountKeys.map((k) =>
       typeof k === 'string' ? k : k.pubkey
     );
     const idx = keys.indexOf(address);
     if (idx < 0) continue;
+
     const value = (tx.meta.postBalances[idx] - tx.meta.preBalances[idx]) / 1e9;
     if (Math.abs(value - amount) <= tolerance) {
       return { txid: s.signature, value, at };
