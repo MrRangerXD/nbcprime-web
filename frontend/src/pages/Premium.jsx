@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Check, Sparkles, Loader2, Copy, CheckCheck, RefreshCw, Crown } from 'lucide-react';
 import { api } from '../lib/api';
@@ -71,66 +71,35 @@ export default function Premium() {
   const [copied, setCopied] = useState(null);
   const [msg, setMsg] = useState(null);
   const [left, setLeft] = useState(0);
-  const poll = useRef(null);
 
-  const loadStatus = async () => {
+  const intentRef = useRef(null);
+  useEffect(() => { intentRef.current = intent; }, [intent]);
+
+  const loadStatus = useCallback(async () => {
     if (!user) return;
     try {
       const s = await api.get('/api/premium/status');
       setStatus(s);
-      if (s.pending && !intent) {
+      if (s.pending && !intentRef.current) {
         setIntent(s.pending);
         setLeft(Math.max(0, Math.floor((new Date(s.pending.expiresAt) - Date.now()) / 1000)));
       }
     } catch { /* offline */ }
-  };
+  }, [user]);
 
   useEffect(() => {
     api.get('/api/premium/plans').then((r) => r?.plans?.length && setPlans(r.plans)).catch(() => {});
     loadStatus();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [loadStatus]);
 
-  useEffect(() => {
-    clearInterval(poll.current);
-    if (!intent) return;
-    poll.current = setInterval(() => check(true), 15000);
-    return () => clearInterval(poll.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [intent]);
-
-  useEffect(() => {
-    if (!intent) return;
-    const tick = () => setLeft(Math.max(0, Math.floor((new Date(intent.expiresAt) - Date.now()) / 1000)));
-    tick();
-    const t = setInterval(tick, 1000);
-    return () => clearInterval(t);
-  }, [intent]);
-
-  const start = async (planId) => {
-    if (!user) return navigate('/login');
-    setBusy(true);
-    setMsg(null);
-    try {
-      const r = await api.post('/api/premium/intent', { plan: planId, currency: coin });
-      if (r.settled?.length) {
-        setMsg({ ok: true, text: 'Your earlier payment was confirmed and Premium is now active.' });
-        refresh?.();
-      }
-      setIntent(r.intent);
-      setLeft(Math.floor((new Date(r.intent.expiresAt) - Date.now()) / 1000));
-    } catch (e) {
-      setMsg({ ok: false, text: String(e.message).replace(/_/g, ' ') });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const check = async (silent) => {
-    if (!intent) return;
+  const check = useCallback(async (silent) => {
+    const current = intentRef.current;
+    if (!current) return;
     if (!silent) setChecking(true);
+
     try {
-      const r = await api.post(`/api/premium/verify/${intent.id}`);
+      const r = await api.post(`/api/premium/verify/${current.id}`);
+
       if (r.status === 'approved') {
         setMsg({ ok: true, text: 'Payment confirmed. Premium activated.' });
         setIntent(null);
@@ -148,6 +117,42 @@ export default function Premium() {
       if (!silent) setMsg({ ok: false, text: 'Verify failed. Retry.' });
     } finally {
       setChecking(false);
+    }
+  }, [loadStatus, refresh]);
+
+  useEffect(() => {
+    if (!intent) return;
+    const id = setInterval(() => check(true), 15000);
+    return () => clearInterval(id);
+  }, [intent, check]);
+
+  useEffect(() => {
+    if (!intent) return;
+    const tick = () => setLeft(Math.max(0, Math.floor((new Date(intent.expiresAt) - Date.now()) / 1000)));
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [intent]);
+
+  const start = async (planId) => {
+    if (!user) return navigate('/login');
+    setBusy(true);
+    setMsg(null);
+
+    try {
+      const r = await api.post('/api/premium/intent', { plan: planId, currency: coin });
+
+      if (r.settled?.length) {
+        setMsg({ ok: true, text: 'Your earlier payment was confirmed and Premium is now active.' });
+        refresh?.();
+      }
+
+      setIntent(r.intent);
+      setLeft(Math.max(0, Math.floor((new Date(r.intent.expiresAt) - Date.now()) / 1000)));
+    } catch (e) {
+      setMsg({ ok: false, text: String(e.message).replace(/_/g, ' ') });
+    } finally {
+      setBusy(false);
     }
   };
 
