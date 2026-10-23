@@ -9,9 +9,13 @@ const srcDir = path.join(here, '..');
 async function main() {
   await connectDB();
 
-  const files = (await fs.readdir(srcDir))
-    .filter((f) => f.endsWith('.sql'))
-    .sort();
+  // schema.sql SABSE PEHLE, warna hardening file fail hogi
+  const files = (await fs.readdir(srcDir)).filter((f) => f.endsWith('.sql'));
+  files.sort((a, b) => {
+    if (a === 'schema.sql') return -1;
+    if (b === 'schema.sql') return 1;
+    return a.localeCompare(b);
+  });
 
   for (const file of files) {
     const sql = await fs.readFile(path.join(srcDir, file), 'utf8');
