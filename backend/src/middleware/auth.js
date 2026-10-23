@@ -11,7 +11,8 @@ export const cookieOptions = () => ({
   httpOnly: true,
   secure: env.COOKIE_SECURE,
   sameSite: 'lax',
-  domain: env.COOKIE_DOMAIN === 'localhost' ? undefined : env.COOKIE_DOMAIN,
+  domain:
+    !env.COOKIE_DOMAIN || env.COOKIE_DOMAIN === 'localhost' ? undefined : env.COOKIE_DOMAIN,
   maxAge: 7 * 24 * 60 * 60 * 1000,
   path: '/',
 });
