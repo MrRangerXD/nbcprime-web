@@ -25,6 +25,10 @@ export default function ServerDetail() {
 
   const load = () => api.get('/api/guilds/' + guildId).then((d) => setData(d.data)).catch(() => setData(false));
   useEffect(() => { load(); }, [guildId]);
+  
+  const canExecute = Boolean(
+  user?.isAdmin || (user?.adminGuilds || []).map(String).includes(String(guildId))
+);
 
   const run = async (action, args) => {
     setBusy(action);
@@ -104,7 +108,7 @@ export default function ServerDetail() {
             return (
               <button
                 key={a.key}
-                disabled={busy || !user.isAdmin}
+                disabled={busy || !canExecute}
                 onClick={() => run(a.key, a.args)}
                 title={locked ? 'Protected server — Force tick karo' : undefined}
                 className={(a.tone === 'danger' ? 'btn-danger' : 'btn-ghost') + ' justify-start ' + (locked ? 'opacity-60' : '')}
@@ -118,7 +122,7 @@ export default function ServerDetail() {
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2.5 border-t border-edge pt-4">
-          <button onClick={toggleWhitelist} disabled={!user.isAdmin} className="btn-ghost">
+          <button onClick={toggleWhitelist} disabled={!canExecute} className="btn-ghost">
             <Shield size={16} /> {isProtected ? 'Unprotect' : 'Protect from nuke'}
           </button>
           <button onClick={() => run('leave', {})} disabled={!user.isOwner} className="btn-ghost">
