@@ -1,19 +1,62 @@
 import { env } from '../config/env.js';
 
-export async function botGet(path, params = {}) {
-  if (!env.BOT_API_URL) throw new Error('bot_api_not_configured');
+const BASE = (env.BOT_API_URL || '').replace(/\/+$/, '');
+const TIMEOUT_MS = 15000;
 
-  const url = new URL(env.BOT_API_URL.replace(/\/$/, '') + path);
-  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, String(v));
+export const BotDown = (e) =>
+  e?.name === 'AbortError' ||
+  [
+    'ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'ECONNABORTED',
+    'ENOTFOUND', 'EAI_AGAIN', 'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_SOCKET',
+  ].includes(e?.code) ||
+  (typeof e?.message === 'string' && /^bot_5\d\d$|fetch failed|socket hang up/i.test(e.message));
+
+async function call(method, path, { body, params } = {}) {
+  if (!BASE) throw new Error('bot_api_not_configured');
+
+  const url = new URL(BASE + (path.startsWith('/') ? path : '/' + path));
+  for (const [k, v] of Object.entries(params || {})) {
+    if (v !== undefined && v !== null) url.searchParams.set(k, String(v));
+  }
 
   const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), 6000);
+  const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
 
+  let res;
   try {
-    const r = await fetch(url, { headers: { 'X-API-Key': env.BOT_API_KEY }, signal: ctrl.signal });
-    if (!r.ok) throw new Error(`bot_${r.status}`);
-    return await r.json();
-  } finally { clearTimeout(t); }
+    res = await fetch(url, {
+      method,
+      signal: ctrl.signal,
+      headers: {
+        'X-API-Key': env.BOT_API_KEY,
+        ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  } catch (e) {
+    if (e.name === 'AbortError') {
+      const t = new Error('bot_timeout');
+      t.code = 'ETIMEDOUT';
+      throw t;
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+
+  const text = await res.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch { data = { raw: text }; }
+
+  if (!res.ok) {
+    const err = new Error('bot_' + res.status);
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
+  return { data };
 }
 
-export const botPost = async (path, body = {}) => { /* same shape, POST */ };
+export const botGet = (path, params) => call('GET', path, { params });
+export const botPost = (path, body) => call('POST', path, { body });
+export const botDelete = (path, body) => call('DELETE', path, { body });
