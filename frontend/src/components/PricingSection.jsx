@@ -33,17 +33,14 @@ export default function PricingSection() {
   const [plans, setPlans] = useState(FALLBACK);
 
   useEffect(() => {
-    api
-      .get('/api/premium/plans')
+    api.get('/api/premium/plans')
       .then((r) => {
         if (!r?.plans?.length) return;
-        setPlans(
-          r.plans.map((p) => ({
-            ...p,
-            popular: p.id === '30d',
-            tag: p.id === 'life' ? 'Forever' : p.id === '30d' ? 'Best value' : 'Starter',
-          }))
-        );
+        setPlans(r.plans.map((p) => ({
+          ...p,
+          popular: p.id === '30d',
+          tag: p.id === 'life' ? 'Forever' : p.id === '30d' ? 'Best value' : 'Starter',
+        })));
       })
       .catch(() => {});
   }, []);
@@ -58,8 +55,8 @@ export default function PricingSection() {
         </span>
         <h2 className="mt-5 font-display text-3xl font-bold md:text-4xl">Unlock the full arsenal</h2>
         <p className="mx-auto mt-3 max-w-xl text-muted">
-          Free gives you every command with standard cooldowns. Premium removes the wait entirely. Pay in crypto and
-          it activates on-chain — no admin approval, no subscription traps.
+          Free gives you every command with standard cooldowns. Premium removes the wait entirely.
+          Pay in crypto and it activates on-chain — no admin approval, no subscription traps.
         </p>
       </div>
 
@@ -88,8 +85,7 @@ export default function PricingSection() {
             <div className="mt-5 space-y-2.5">
               {PERKS.map((perk) => (
                 <div key={perk} className="flex items-start gap-2 text-sm text-muted">
-                  <Check size={15} className="mt-0.5 shrink-0 text-accent" />
-                  {perk}
+                  <Check size={15} className="mt-0.5 shrink-0 text-accent" />{perk}
                 </div>
               ))}
             </div>
@@ -99,24 +95,21 @@ export default function PricingSection() {
               <ul className="mt-2 space-y-1.5">
                 {FREE_PERKS.map((perk) => (
                   <li key={perk} className="flex items-start gap-2 text-xs text-muted/90">
-                    <Check size={12} className="mt-0.5 shrink-0 text-emerald-400" />
-                    {perk}
+                    <Check size={12} className="mt-0.5 shrink-0 text-emerald-400" />{perk}
                   </li>
                 ))}
               </ul>
             </div>
 
             <button onClick={go} className={'mt-5 w-full ' + (p.popular ? 'btn-primary' : 'btn-ghost')}>
-              {p.popular ? <Flame size={16} /> : <Sparkles size={16} />}
-              Get {p.label}
+              {p.popular ? <Flame size={16} /> : <Sparkles size={16} />} Get {p.label}
             </button>
           </motion.div>
         ))}
       </div>
 
       <p className="mt-6 text-center text-xs text-muted">
-        Accepted: <span className="text-white/70">Litecoin (LTC)</span> ·{' '}
-        <span className="text-white/70">Solana (SOL)</span> — automatic on-chain verification.
+        Accepted: <span className="text-white/70">Litecoin (LTC)</span> · <span className="text-white/70">Solana (SOL)</span> — automatic on-chain verification.
       </p>
     </section>
   );
