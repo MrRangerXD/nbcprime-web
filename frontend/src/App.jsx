@@ -28,7 +28,6 @@ export default function App() {
         <Route path="/blogs" element={<Posts type="blog" />} />
         <Route path="/news" element={<Posts type="news" />} />
         <Route path="/post/:slug" element={<PostView />} />
-        <Route path="/dashboard/premium" element={<Premium />} />
       </Route>
 
       <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
@@ -38,6 +37,7 @@ export default function App() {
         <Route path="servers" element={<Servers />} />
         <Route path="servers/:guildId" element={<ServerDetail />} />
         <Route path="giveaways" element={<Giveaways />} />
+        <Route path="premium" element={<Premium />} />
         <Route path="profile" element={<Profile />} />
         <Route path="admin" element={<Admin />} />
       </Route>
