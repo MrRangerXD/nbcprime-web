@@ -4,13 +4,21 @@ import { botGet } from '../services/bot.js';
 
 const router = Router();
 
-// tiny in-process cache so a homepage refresh doesn't hammer the bot VPS
+// chhota in-process cache, taaki homepage refresh bot VPS ko hammer na kare
 const cache = new Map();
+
 const cached = async (key, ttlMs, fn) => {
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < ttlMs) return hit.value;
+
   const value = await fn();
   cache.set(key, { at: Date.now(), value });
+
+  if (cache.size > 64) {
+    for (const [k, v] of cache) {
+      if (Date.now() - v.at > ttlMs) cache.delete(k);
+    }
+  }
   return value;
 };
 
@@ -40,10 +48,11 @@ router.get('/stats', async (_req, res) => {
   res.json({ ok: true, ...payload });
 });
 
-const limitOf = (q, max = 50) => Math.min(Math.max(Number(q) || 10, 1), max);
+const limitOf = (val, max = 50) => Math.min(Math.max(Number(val) || 10, 1), max);
 
 router.get('/leaderboard/users', async (req, res) => {
   const limit = limitOf(req.query.limit);
+
   try {
     return res.json({ ok: true, source: 'live', data: (await botGet('/api/leaderboard/users', { limit })).data });
   } catch {
@@ -58,6 +67,7 @@ router.get('/leaderboard/users', async (req, res) => {
 
 router.get('/leaderboard/servers', async (req, res) => {
   const limit = limitOf(req.query.limit);
+
   try {
     return res.json({ ok: true, source: 'live', data: (await botGet('/api/leaderboard/servers', { limit })).data });
   } catch {
@@ -100,7 +110,9 @@ router.get('/posts/:slug', async (req, res) => {
 });
 
 router.get('/giveaways', async (_req, res) => {
-  const rows = await many(`select * from giveaways where status = 'active' order by ends_at asc limit 20`);
+  const rows = await many(
+    `select * from giveaways where status = 'active' order by ends_at asc limit 20`
+  );
   res.json({ ok: true, data: rows });
 });
 
