@@ -18,7 +18,7 @@ export default function Profile() {
         <img src={avatarUrl(user.id, user.avatar)} alt="" className="h-20 w-20 rounded-2xl border border-edge" />
         <div className="flex-1">
           <h1 className="font-display text-2xl font-bold">{user.globalName || user.username}</h1>
-          <p className="text-sm text-muted">@{user.username} - {user.id}</p>
+          <p className="text-sm text-muted">@{user.username} — {user.id}</p>
           <div className="mt-2 flex gap-1.5">
             {user.isOwner && <Badge tone="purple">Owner</Badge>}
             {user.isAdmin && !user.isOwner && <Badge tone="amber">Admin</Badge>}
@@ -36,7 +36,7 @@ export default function Profile() {
         </div>
       )}
 
-      {stats && stats.topCommands && stats.topCommands.length > 0 && (
+      {stats && stats.topCommands?.length > 0 && (
         <Card>
           <h2 className="font-display font-semibold">Your top commands</h2>
           <div className="mt-3 space-y-2">
@@ -50,14 +50,14 @@ export default function Profile() {
         </Card>
       )}
 
-      {stats && stats.recent && stats.recent.length > 0 && (
+      {stats && stats.recent?.length > 0 && (
         <Card>
           <h2 className="font-display font-semibold">Recent activity</h2>
           <div className="mt-3 divide-y divide-edge/60 text-sm">
             {stats.recent.map((r, i) => (
-              <div key={r._id || r.command + '-' + i} className="flex justify-between py-2.5">
+              <div key={r._id || `${r.command}-${i}`} className="flex justify-between py-2.5">
                 <span>/{r.command}</span>
-                <span className="text-muted text-xs">{r.guildName || 'DM'}</span>
+                <span className="text-xs text-muted">{r.guildName || 'DM'}</span>
               </div>
             ))}
           </div>
