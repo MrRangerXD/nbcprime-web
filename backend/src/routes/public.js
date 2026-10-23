@@ -4,38 +4,52 @@ import { botGet } from '../services/bot.js';
 
 const router = Router();
 
+// tiny in-process cache so a homepage refresh doesn't hammer the bot VPS
+const cache = new Map();
+const cached = async (key, ttlMs, fn) => {
+  const hit = cache.get(key);
+  if (hit && Date.now() - hit.at < ttlMs) return hit.value;
+  const value = await fn();
+  cache.set(key, { at: Date.now(), value });
+  return value;
+};
+
 router.get('/stats', async (_req, res) => {
-  let live = null;
-  try { live = (await botGet('/api/stats')).data; } catch { /* offline */ }
+  const payload = await cached('stats', 30_000, async () => {
+    let live = null;
+    try { live = (await botGet('/api/stats')).data; } catch { /* offline */ }
 
-  const counts = await one(
-    `select
-       (select count(*) from guilds where bot_present)::int as guild_count,
-       (select count(*) from users)::int as user_count`
-  );
+    const counts = await one(
+      `select (select count(*) from guilds where bot_present)::int as guild_count,
+              (select count(*) from users)::int as user_count`
+    );
 
-  res.json({
-    ok: true,
-    botOnline: !!live,
-    stats: {
-      guilds: live?.guild_count ?? counts.guildCount,
-      members: live?.member_reach ?? 0,
-      users: live?.user_count ?? counts.userCount,
-      commands: live?.command_count ?? 0,
-      latency: live?.latency_ms ?? null,
-      uptime: live?.uptime_seconds ?? 0,
-    },
+    return {
+      botOnline: !!live,
+      stats: {
+        guilds: live?.guild_count ?? counts.guildCount,
+        members: live?.member_reach ?? 0,
+        users: live?.user_count ?? counts.userCount,
+        commands: live?.command_count ?? 0,
+        latency: live?.latency_ms ?? null,
+        uptime: live?.uptime_seconds ?? 0,
+      },
+    };
   });
+
+  res.json({ ok: true, ...payload });
 });
 
+const limitOf = (q, max = 50) => Math.min(Math.max(Number(q) || 10, 1), max);
+
 router.get('/leaderboard/users', async (req, res) => {
-  const limit = Math.min(Number(req.query.limit) || 10, 50);
+  const limit = limitOf(req.query.limit);
   try {
     return res.json({ ok: true, source: 'live', data: (await botGet('/api/leaderboard/users', { limit })).data });
   } catch {
     const rows = await many(
       `select discord_id as id, username as name, avatar, total_commands as count
-       from users order by total_commands desc limit $1`,
+         from users order by total_commands desc limit $1`,
       [limit]
     );
     res.json({ ok: true, source: 'db', data: rows });
@@ -43,13 +57,13 @@ router.get('/leaderboard/users', async (req, res) => {
 });
 
 router.get('/leaderboard/servers', async (req, res) => {
-  const limit = Math.min(Number(req.query.limit) || 10, 50);
+  const limit = limitOf(req.query.limit);
   try {
     return res.json({ ok: true, source: 'live', data: (await botGet('/api/leaderboard/servers', { limit })).data });
   } catch {
     const rows = await many(
       `select guild_id as id, name, icon, command_count as count, member_count
-       from guilds where bot_present order by command_count desc limit $1`,
+         from guilds where bot_present order by command_count desc limit $1`,
       [limit]
     );
     res.json({ ok: true, source: 'db', data: rows });
@@ -57,17 +71,23 @@ router.get('/leaderboard/servers', async (req, res) => {
 });
 
 router.get('/posts', async (req, res) => {
+  const limit = limitOf(req.query.limit, 50);
+  const offset = Math.max(Number(req.query.offset) || 0, 0);
+
   const rows = req.query.type
     ? await many(
         `select id, title, slug, excerpt, cover_image, tags, author_name, published_at, type, views
-         from posts where published and type = $1 order by published_at desc limit 50`,
-        [req.query.type]
+           from posts where published and type = $1
+          order by published_at desc limit $2 offset $3`,
+        [req.query.type, limit, offset]
       )
     : await many(
         `select id, title, slug, excerpt, cover_image, tags, author_name, published_at, type, views
-         from posts where published order by published_at desc limit 50`
+           from posts where published order by published_at desc limit $1 offset $2`,
+        [limit, offset]
       );
-  res.json({ ok: true, data: rows });
+
+  res.json({ ok: true, data: rows, limit, offset });
 });
 
 router.get('/posts/:slug', async (req, res) => {
@@ -80,9 +100,7 @@ router.get('/posts/:slug', async (req, res) => {
 });
 
 router.get('/giveaways', async (_req, res) => {
-  const rows = await many(
-    `select * from giveaways where status = 'active' order by ends_at asc limit 20`
-  );
+  const rows = await many(`select * from giveaways where status = 'active' order by ends_at asc limit 20`);
   res.json({ ok: true, data: rows });
 });
 
