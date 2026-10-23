@@ -10,9 +10,9 @@ export const signToken = (user) =>
 export const cookieOptions = () => ({
   httpOnly: true,
   secure: env.COOKIE_SECURE,
-  sameSite: 'lax',
-  domain:
-    !env.COOKIE_DOMAIN || env.COOKIE_DOMAIN === 'localhost' ? undefined : env.COOKIE_DOMAIN,
+  // B6: cross-site deploy (vercel.app -> railway.app) pe 'lax' login todta hai
+  sameSite: env.COOKIE_SECURE ? 'none' : 'lax',
+  domain: !env.COOKIE_DOMAIN || env.COOKIE_DOMAIN === 'localhost' ? undefined : env.COOKIE_DOMAIN,
   maxAge: 7 * 24 * 60 * 60 * 1000,
   path: '/',
 });
@@ -20,13 +20,19 @@ export const cookieOptions = () => ({
 export async function attachUser(req, _res, next) {
   const token = req.cookies?.[cookieName];
   if (!token) return next();
+
   try {
     const { sub } = jwt.verify(token, env.JWT_SECRET);
     req.user = await one('select * from users where discord_id = $1', [sub]);
   } catch { /* expired */ }
-  if (req.user?.premiumUntil && new Date(req.user.premiumUntil).getTime() < Date.now()) {
-  req.user.isPremium = false;
-}
+
+  // B7: expired premium ko DB me bhi persist karo, sirf memory me nahi
+  if (req.user?.isPremium && req.user.premiumUntil && new Date(req.user.premiumUntil).getTime() < Date.now()) {
+    req.user.isPremium = false;
+    q('update users set is_premium = false, updated_at = now() where discord_id = $1', [req.user.discordId])
+      .catch(() => {});
+  }
+
   next();
 }
 
@@ -37,6 +43,7 @@ export function requireAuth(req, res, next) {
 }
 
 export function requireAdmin(req, res, next) {
+  const gid = req.params.guildId || req.body?.guildId;
   if (!req.user) return res.status(401).json({ ok: false, error: 'not_authenticated' });
   const allowed = req.user.isAdmin || isOwner(req.user.discordId) || adminIds.includes(req.user.discordId);
   if (!allowed) return res.status(403).json({ ok: false, error: 'forbidden' });
