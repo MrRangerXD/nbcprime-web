@@ -21,7 +21,7 @@ export function createApp() {
   const app = express();
   app.set('trust proxy', 1);
 
-  app.use('/api/premium', premiumRoutes);
+  // ---- global middleware PEHLE ----
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   app.use(cors({ origin: env.FRONTEND_URL, credentials: true }));
   app.use(express.json({ limit: '1mb' }));
@@ -33,6 +33,7 @@ export function createApp() {
 
   app.use(attachUser);
 
+  // ---- routes BAAD ME ----
   app.use('/api/auth', authRoutes);
   app.use('/api/public', publicRoutes);
   app.use('/api/me', meRoutes);
@@ -41,6 +42,7 @@ export function createApp() {
   app.use('/api/giveaways', giveawayRoutes);
   app.use('/api/admin', adminRoutes);
   app.use('/api/ingest', ingestRoutes);
+  app.use('/api/premium', premiumRoutes);   // <-- yahan shift kiya
 
   app.get('/api/health', (_req, res) => res.json({ ok: true, ts: Date.now() }));
 
