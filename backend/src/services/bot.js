@@ -11,6 +11,8 @@ export const BotDown = (e) =>
   ].includes(e?.code) ||
   (typeof e?.message === 'string' && /^bot_5\d\d$|fetch failed|socket hang up/i.test(e.message));
 
+// NOTE: ye PARSED BODY return karta hai, axios-jaisa { data } wrapper NAHI.
+// Bot already {"ok":true,"data":...} bhejta hai, isliye caller .data karta hai.
 async function call(method, path, { body, params } = {}) {
   if (!BASE) throw new Error('bot_api_not_configured');
 
@@ -55,7 +57,7 @@ async function call(method, path, { body, params } = {}) {
     throw err;
   }
 
-  return { data };
+  return data;
 }
 
 export const botGet = (path, params) => call('GET', path, { params });
