@@ -54,8 +54,8 @@ export default function Profile() {
         <Card>
           <h2 className="font-display font-semibold">Recent activity</h2>
           <div className="mt-3 divide-y divide-edge/60 text-sm">
-            {stats.recent.map((r) => (
-              <div key={r._id} className="flex justify-between py-2.5">
+            {stats.recent.map((r, i) => (
+              <div key={r._id || r.command + '-' + i} className="flex justify-between py-2.5">
                 <span>/{r.command}</span>
                 <span className="text-muted text-xs">{r.guildName || 'DM'}</span>
               </div>
