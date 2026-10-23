@@ -148,7 +148,7 @@ export default function Premium() {
       }
 
       setIntent(r.intent);
-      setLeft(Math.max(0, Math.floor((new Date(r.intent.expiresAt) - Date.now()) / 1000)));
+      setLeft(Math.max(0, Math.floor((new Date(r.intent.expiresAt) - Date.now()) / 1000))); // FIX
     } catch (e) {
       setMsg({ ok: false, text: String(e.message).replace(/_/g, ' ') });
     } finally {
