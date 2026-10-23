@@ -15,7 +15,7 @@ import Faq from '../components/Faq';
 import { MARQUEE_COMMANDS, TOTAL_COMMANDS, TOTAL_SLASH } from '../lib/commands';
 
 const ADD_BOT_URL =
-  'https://discord.com/oauth2/authorize?client_id=1455472629912965211&permissions=8&integration_type=0&scope=bot+applications.commands';
+  'https://discord.com/oauth2/authorize?client_id=1481283105837940901&permissions=8&integration_type=0&scope=bot+applications.commands';
 
 const features = [
   { icon: Rocket, title: 'Remote Nuke', desc: 'Wipe a server from your browser. Parallel deletion, creation and spam in one shot.' },
