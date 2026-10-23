@@ -9,17 +9,31 @@ import { useAuth } from '../../context/AuthContext';
 export default function Overview() {
   const { user } = useAuth();
   const [stats, setStats] = useState(null);
+  const [failed, setFailed] = useState(false);
   const [top, setTop] = useState([]);
   const [activity, setActivity] = useState([]);
 
   useEffect(() => {
-    api.get('/api/public/stats').then((d) => setStats(d.stats)).catch(() => {});
-    api.get('/api/public/leaderboard/users?limit=5').then((d) => setTop(d.data || [])).catch(() => {});
-    api.get('/api/leaderboard/activity?days=14').then((d) => setActivity(d.data || [])).catch(() => {});
+    let alive = true;
+    Promise.all([
+      api.get('/api/public/stats').then((d) => alive && setStats(d.stats)).catch(() => alive && setFailed(true)),
+      api.get('/api/public/leaderboard/users?limit=5').then((d) => alive && setTop(d.data || [])).catch(() => {}),
+      api.get('/api/leaderboard/activity?days=14').then((d) => alive && setActivity(d.data || [])).catch(() => {}),
+    ]);
+    return () => { alive = false; };
   }, []);
 
+  if (failed && !stats) {
+    return (
+      <Card className="text-center">
+        <p className="font-display text-lg">Could not reach the API</p>
+        <p className="mt-1 text-sm text-muted">Check that the backend is running and VITE_API_URL is correct.</p>
+      </Card>
+    );
+  }
   if (!stats) return <Loader label="Loading dashboard" />;
-  const max = Math.max.apply(null, activity.map((a) => a.count).concat([1]));
+
+  const max = Math.max(...activity.map((a) => a.count), 1);
 
   return (
     <div className="space-y-6">
