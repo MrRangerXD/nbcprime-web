@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { one, q } from '../db.js';
 
 export const ADDRESSES = {
   LTC: process.env.LTC_ADDRESS || 'ltc1qutvfdfkyypw5689vahyw8eu9ap2u37zphg8jss',
@@ -6,34 +7,69 @@ export const ADDRESSES = {
 };
 
 const DECIMALS = { LTC: 8, SOL: 6 };
-// FIX: SOL ka 0.0005 tolerance amount (0.002 SOL) ka 25% tha -> galat tx match
-const ABS_TOLERANCE = { LTC: 0.0002, SOL: 0.00002 };
 const SOL_RPC = process.env.SOL_RPC_URL || 'https://api.mainnet-beta.solana.com';
-
-// FIX: SOL verify pe 25 alag-alag RPC call jaati thi, public endpoint rate-limit kar deta tha
 const SOL_TX_SCAN_LIMIT = 10;
+
+// FIX: CoinGecko 429/500 -> rate_unavailable -> premium band. Ab 3 layer fallback hai.
+const HARD_FALLBACK = { LTC: 90, SOL: 150 };
+const RATE_TTL = 5 * 60_000;
+const RATE_CACHE_KEY = 'crypto_rates';
 
 const round = (n, d) => Number(n.toFixed(d));
 
 let priceCache = { at: 0, data: null };
 
+async function saveRates(r) {
+  try {
+    await q(
+      `insert into cache (key, value, expires_at)
+       values ($1, $2, now() + interval '7 days')
+       on conflict (key) do update set value = excluded.value, expires_at = excluded.expires_at`,
+      [RATE_CACHE_KEY, JSON.stringify(r)]
+    );
+  } catch { /* ignore */ }
+}
+
+async function loadRates() {
+  try {
+    const row = await one('select value from cache where key = $1 and expires_at > now()', [RATE_CACHE_KEY]);
+    if (!row) return null;
+    const v = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+    if (v?.LTC > 0 && v?.SOL > 0) return v;
+  } catch { /* ignore */ }
+  return null;
+}
+
 export async function rates() {
-  if (priceCache.data && Date.now() - priceCache.at < 60_000) return priceCache.data;
-  const { data } = await axios.get(
-    'https://api.coingecko.com/api/v3/simple/price?ids=litecoin,solana&vs_currencies=usd',
-    { timeout: 8000 }
-  );
-  priceCache = {
-    at: Date.now(),
-    data: { LTC: Number(data.litecoin.usd), SOL: Number(data.solana.usd) },
-  };
-  return priceCache.data;
+  if (priceCache.data && Date.now() - priceCache.at < RATE_TTL) return priceCache.data;
+
+  try {
+    const { data } = await axios.get(
+      'https://api.coingecko.com/api/v3/simple/price?ids=litecoin,solana&vs_currencies=usd',
+      { timeout: 8000 }
+    );
+    const fresh = { LTC: Number(data?.litecoin?.usd), SOL: Number(data?.solana?.usd) };
+    if (fresh.LTC > 0 && fresh.SOL > 0) {
+      priceCache = { at: Date.now(), data: fresh };
+      saveRates(fresh).catch(() => {});
+      return fresh;
+    }
+  } catch { /* neeche fallback */ }
+
+  const persisted = await loadRates();
+  const fallback = persisted || priceCache.data || HARD_FALLBACK;
+
+  // 1 min baad dobara try karo, 5 min tak stale na rakho
+  priceCache = { at: Date.now() - RATE_TTL + 60_000, data: fallback };
+  console.warn('[crypto] using fallback rates', fallback);
+  return fallback;
 }
 
 export async function quote(currency, usd) {
   const r = await rates();
   const rate = r[currency];
   if (!rate) throw new Error('no_rate');
+
   const base = usd / rate;
   const amount = round(base * (1 + 0.005 + Math.random() * 0.025), DECIMALS[currency]);
   const tolerance = Math.max(amount * 0.0025, 10 ** -DECIMALS[currency]);
@@ -57,7 +93,6 @@ async function solRpc(method, params) {
 }
 
 async function findLtc(address, amount, tolerance, sinceMs) {
-  // FIX: BlockCypher naye address pe 404 deta hai -> pehle axios throw kar raha tha
   const { data } = await axios.get(
     `https://api.blockcypher.com/v1/ltc/main/addrs/${address}/full?limit=25`,
     { timeout: 12000, validateStatus: (s) => s < 500 }
@@ -70,9 +105,7 @@ async function findLtc(address, amount, tolerance, sinceMs) {
     for (const out of tx.outputs || []) {
       if (!(out.addresses || []).includes(address)) continue;
       const value = out.value / 1e8;
-      if (Math.abs(value - amount) <= tolerance) {
-        return { txid: tx.hash, value, at };
-      }
+      if (Math.abs(value - amount) <= tolerance) return { txid: tx.hash, value, at };
     }
   }
   return null;
@@ -88,12 +121,9 @@ async function findSol(address, amount, tolerance, sinceMs) {
     let tx;
     try {
       tx = await solRpc('getTransaction', [
-        s.signature,
-        { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 },
+        s.signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 },
       ]);
-    } catch {
-      continue; // FIX: ek tx fail hone pe pura verify band na ho
-    }
+    } catch { continue; }
 
     if (!tx?.meta) continue;
 
@@ -104,9 +134,7 @@ async function findSol(address, amount, tolerance, sinceMs) {
     if (idx < 0) continue;
 
     const value = (tx.meta.postBalances[idx] - tx.meta.preBalances[idx]) / 1e9;
-    if (Math.abs(value - amount) <= tolerance) {
-      return { txid: s.signature, value, at };
-    }
+    if (Math.abs(value - amount) <= tolerance) return { txid: s.signature, value, at };
   }
   return null;
 }
