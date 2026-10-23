@@ -40,8 +40,18 @@ export default function Premium() {
   const [left, setLeft] = useState(0);
   const poll = useRef(null);
 
-  const loadStatus = () =>
-    user && api.get('/api/premium/status').then(setStatus).catch(() => {});
+  const loadStatus = async () => {
+    if (!user) return;
+    try {
+      const s = await api.get('/api/premium/status');
+      setStatus(s);
+      // A5: page reload ke baad bhi intent wapas aa jaye
+      if (s.pending && !intent) {
+        setIntent(s.pending);
+        setLeft(Math.max(0, Math.floor((new Date(s.pending.expiresAt) - Date.now()) / 1000)));
+      }
+    } catch { /* offline */ }
+  };
 
   useEffect(() => {
     api.get('/api/premium/plans').then((r) => r?.plans && setPlans(r.plans)).catch(() => {});
@@ -79,6 +89,13 @@ export default function Premium() {
     }
   };
 
+  const r = await api.post('/api/premium/intent', { plan: planId, currency: coin });
+      if (r.settled?.length) {
+        setMsg({ ok: true, text: 'Your earlier payment was confirmed and Premium is active.' });
+        refresh?.();
+      }
+      setIntent(r.intent);
+
   const check = async (silent) => {
     if (!intent) return;
     if (!silent) setChecking(true);
@@ -100,6 +117,11 @@ export default function Premium() {
     } finally {
       setChecking(false);
     }
+  };
+
+  const fmtAmount = (n) => {
+    const s = Number(n).toFixed(8);
+    return s.includes('.') ? s.replace(/0+$/, '').replace(/\.$/, '') : s;
   };
 
   const changePlan = async () => {
@@ -199,7 +221,12 @@ export default function Premium() {
       ) : (
         <div className="card grid gap-5 p-5 sm:grid-cols-[200px_1fr]">
           <div className="rounded-xl bg-white p-2">
-            <img src={qr(intent.uri)} alt="payment qr" className="h-full w-full" />
+            <img
+              src={qr(intent.uri)}
+              alt="payment qr"
+              className="h-full w-full"
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+            />
           </div>
           <div>
             <div className="flex items-center justify-between">
@@ -245,6 +272,31 @@ export default function Premium() {
           transaction confirms on-chain, Premium activates automatically — no admin approval needed.
         </p>
       </div>
+    </div>
+  );
+}
+
+<PaymentHistory />
+
+function PaymentHistory() {
+  const [rows, setRows] = useState([]);
+  useEffect(() => { api.get('/api/premium/history').then((d) => setRows(d.data || [])).catch(() => {}); }, []);
+  if (!rows.length) return null;
+
+  return (
+    <div className="card overflow-hidden p-0">
+      <div className="border-b border-edge px-5 py-4 font-display font-semibold">Payment history</div>
+      {rows.map((r) => (
+        <div key={r.id} className="flex items-center justify-between border-b border-edge/60 px-5 py-3 text-sm last:border-0">
+          <div>
+            <span className="font-medium">{r.plan}</span>
+            <span className="ml-2 text-muted">{fmtAmount(r.amountCrypto)} {r.currency}</span>
+          </div>
+          <Badge tone={r.status === 'approved' ? 'green' : r.status === 'pending' ? 'amber' : 'default'}>
+            {r.status}
+          </Badge>
+        </div>
+      ))}
     </div>
   );
 }
