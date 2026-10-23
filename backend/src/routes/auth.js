@@ -1,0 +1,125 @@
+import { Router } from 'express';
+import axios from 'axios';
+import crypto from 'node:crypto';
+import { env, adminIds, isOwner } from '../config/env.js';
+import { one } from '../db.js';
+import { signToken, cookieName, cookieOptions, requireAuth } from '../middleware/auth.js';
+import { encrypt } from '../lib/crypto.js';
+import { audit } from '../services/audit.js';
+
+const router = Router();
+const DISCORD_API = 'https://discord.com/api/v10';
+
+router.get('/discord', (req, res) => {
+  const state = crypto.randomBytes(16).toString('hex');
+  res.cookie('nbc_state', state, {
+    httpOnly: true,
+    secure: env.COOKIE_SECURE,
+    maxAge: 600000,
+    sameSite: 'lax',
+  });
+
+  const params = new URLSearchParams({
+    client_id: env.DISCORD_CLIENT_ID,
+    redirect_uri: env.DISCORD_REDIRECT_URI,
+    response_type: 'code',
+    scope: 'identify email guilds',
+    state,
+    prompt: 'consent',
+  });
+  res.redirect('https://discord.com/oauth2/authorize?' + params);
+});
+
+router.get('/discord/callback', async (req, res) => {
+  const { code, state } = req.query;
+  const expected = req.cookies?.nbc_state;
+  if (!code) return res.redirect(env.FRONTEND_URL + '/login?error=no_code');
+  if (!state || state !== expected) return res.redirect(env.FRONTEND_URL + '/login?error=bad_state');
+
+  try {
+    const tokenRes = await axios.post(
+      DISCORD_API + '/oauth2/token',
+      new URLSearchParams({
+        client_id: env.DISCORD_CLIENT_ID,
+        client_secret: env.DISCORD_CLIENT_SECRET,
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: env.DISCORD_REDIRECT_URI,
+      }),
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+    );
+
+    const { access_token, refresh_token, expires_in } = tokenRes.data;
+
+    const meRes = await axios.get(DISCORD_API + '/users/@me', {
+      headers: { Authorization: 'Bearer ' + access_token },
+    });
+    const guildsRes = await axios.get(DISCORD_API + '/users/@me/guilds', {
+      headers: { Authorization: 'Bearer ' + access_token },
+    });
+
+    const me = meRes.data;
+    const adminGuilds = guildsRes.data
+      .filter((g) => (BigInt(g.permissions) & 0x20n) === 0x20n || g.owner)
+      .map((g) => g.id);
+
+    const user = await one(
+      `insert into users
+        (discord_id, username, global_name, avatar, banner, email,
+         access_token, refresh_token, token_expires_at, admin_guilds, last_login_at, login_count, is_admin)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, now(), 1, $11)
+       on conflict (discord_id) do update set
+         username = excluded.username,
+         global_name = excluded.global_name,
+         avatar = excluded.avatar,
+         banner = excluded.banner,
+         email = excluded.email,
+         access_token = excluded.access_token,
+         refresh_token = excluded.refresh_token,
+         token_expires_at = excluded.token_expires_at,
+         admin_guilds = excluded.admin_guilds,
+         last_login_at = now(),
+         login_count = users.login_count + 1,
+         updated_at = now()
+       returning *`,
+      [
+        me.id, me.username, me.global_name, me.avatar, me.banner, me.email,
+        encrypt(access_token), encrypt(refresh_token),
+        new Date(Date.now() + expires_in * 1000),
+        adminGuilds, adminIds.includes(me.id),
+      ]
+    );
+
+    res.cookie(cookieName, signToken(user), cookieOptions());
+    res.clearCookie('nbc_state');
+    await audit({ user, ip: req.ip }, 'login', user.discordId);
+    res.redirect(env.FRONTEND_URL + '/dashboard');
+  } catch (err) {
+    console.error('[auth]', err.response?.data || err.message);
+    res.redirect(env.FRONTEND_URL + '/login?error=oauth_failed');
+  }
+});
+
+router.post('/logout', (req, res) => {
+  res.clearCookie(cookieName, { ...cookieOptions(), maxAge: undefined });
+  res.json({ ok: true });
+});
+
+router.get('/me', requireAuth, (req, res) => {
+  const u = req.user;
+  res.json({
+    ok: true,
+    user: {
+      id: u.discordId,
+      username: u.username,
+      globalName: u.globalName,
+      avatar: u.avatar,
+      isAdmin: u.isAdmin || isOwner(u.discordId) || adminIds.includes(u.discordId),
+      isOwner: isOwner(u.discordId),
+      isPremium: u.isPremium,
+      adminGuilds: u.adminGuilds || [],
+    },
+  });
+});
+
+export default router;

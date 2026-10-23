@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { scroll-behavior: smooth; }
+  body {
+    @apply bg-void text-white font-sans antialiased;
+    background-image:
+      radial-gradient(60rem 40rem at 50% -10%, rgba(139,92,246,0.14), transparent 60%),
+      radial-gradient(40rem 30rem at 90% 10%, rgba(255,255,255,0.05), transparent 60%);
+  }
+  ::selection { @apply bg-accent/40; }
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-track { @apply bg-void; }
+  ::-webkit-scrollbar-thumb { @apply bg-edge rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-muted/50; }
+}
+
+@layer components {
+  .card { @apply bg-panel/70 border border-edge rounded-2xl backdrop-blur-sm; }
+  .card-hover { @apply transition-all duration-300 hover:border-accent/40 hover:shadow-glow; }
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed; }
+  .btn-primary { @apply btn bg-white text-black hover:bg-white/90 hover:shadow-white; }
+  .btn-ghost { @apply btn border border-edge text-white/80 hover:text-white hover:border-white/30 hover:bg-white/5; }
+  .btn-danger { @apply btn bg-red-500/15 text-red-300 border border-red-500/30 hover:bg-red-500/25; }
+  .input { @apply w-full bg-surface border border-edge rounded-xl px-4 py-2.5 text-sm outline-none placeholder:text-muted/60 focus:border-accent/60 transition-colors; }
+  .label { @apply block text-xs font-medium uppercase tracking-wider text-muted mb-1.5; }
+  .glow-text { text-shadow: 0 0 24px rgba(255,255,255,0.45); }
+  .grid-bg {
+    background-image: linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+}
