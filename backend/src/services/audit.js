@@ -7,5 +7,8 @@ export async function audit(req, action, target, meta = {}) {
        values ($1,$2,$3,$4,$5,$6)`,
       [req.user?.discordId || null, req.user?.username || null, action, target, JSON.stringify(meta), req.ip]
     );
-  } catch { /* non-fatal */ }
+  } catch (e) {
+    // FIX: pehle chupchap nigal jata tha
+    console.error('[audit]', action, e.message);
+  }
 }
