@@ -4,6 +4,7 @@ import { many, one, q } from '../db.js';
 import { requireAdmin, requireOwner } from '../middleware/auth.js';
 import { botGet, botPost, BotDown } from '../services/bot.js';
 import { audit } from '../services/audit.js';
+import { grantPremium } from '../services/premium.js';
 
 const router = Router();
 router.use(requireAdmin);
