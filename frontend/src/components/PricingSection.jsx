@@ -4,18 +4,26 @@ import { motion } from 'framer-motion';
 import { Check, Sparkles, Crown, Flame } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import { TOTAL_COMMANDS } from '../lib/commands';
 
 const FALLBACK = [
-  { id: '10d',  label: '10 Days',  inr: 30,  usd: 0.32, tag: 'Starter' },
-  { id: '30d',  label: '30 Days',  inr: 80,  usd: 0.84, tag: 'Best value', popular: true },
+  { id: '10d', label: '10 Days', inr: 30, usd: 0.32, tag: 'Starter' },
+  { id: '30d', label: '30 Days', inr: 80, usd: 0.84, tag: 'Best value', popular: true },
   { id: 'life', label: 'Lifetime', inr: 435, usd: 4.57, tag: 'Forever' },
 ];
 
+const FREE_PERKS = [
+  `All ${TOTAL_COMMANDS} slash and prefix commands`,
+  'Full dashboard and live leaderboards',
+  'Backups, giveaways and whitelisting',
+  'Standard cooldowns and queue position',
+];
+
 const PERKS = [
-  'Unlimited nukes & mass actions',
+  'Everything in Free, uncapped',
   'Zero command cooldowns',
-  'Priority action queue (front of line)',
-  'Premium badge on profile + leaderboard',
+  'Priority action queue (front of the line)',
+  'Premium badge on your profile and the leaderboard',
   'Early access to new commands',
 ];
 
@@ -25,10 +33,17 @@ export default function PricingSection() {
   const [plans, setPlans] = useState(FALLBACK);
 
   useEffect(() => {
-    api.get('/api/premium/plans')
+    api
+      .get('/api/premium/plans')
       .then((r) => {
-        if (!r?.plans) return;
-        setPlans(r.plans.map((p) => ({ ...p, popular: p.id === '30d', tag: p.id === 'life' ? 'Forever' : p.id === '30d' ? 'Best value' : 'Starter' })));
+        if (!r?.plans?.length) return;
+        setPlans(
+          r.plans.map((p) => ({
+            ...p,
+            popular: p.id === '30d',
+            tag: p.id === 'life' ? 'Forever' : p.id === '30d' ? 'Best value' : 'Starter',
+          }))
+        );
       })
       .catch(() => {});
   }, []);
@@ -43,8 +58,8 @@ export default function PricingSection() {
         </span>
         <h2 className="mt-5 font-display text-3xl font-bold md:text-4xl">Unlock the full arsenal</h2>
         <p className="mx-auto mt-3 max-w-xl text-muted">
-          Free plan unlimited hai lekin cooldowns ke saath. Premium me sab kuch instant, no waiting.
-          Crypto se pay karo — auto-activate, admin ki zaroorat nahi.
+          Free gives you every command with standard cooldowns. Premium removes the wait entirely. Pay in crypto and
+          it activates on-chain — no admin approval, no subscription traps.
         </p>
       </div>
 
@@ -70,16 +85,28 @@ export default function PricingSection() {
               <span className="text-sm text-muted">≈ ${Number(p.usd).toFixed(2)}</span>
             </div>
 
-            <ul className="mt-5 flex-1 space-y-2.5">
+            <div className="mt-5 space-y-2.5">
               {PERKS.map((perk) => (
-                <li key={perk} className="flex items-start gap-2 text-sm text-muted">
+                <div key={perk} className="flex items-start gap-2 text-sm text-muted">
                   <Check size={15} className="mt-0.5 shrink-0 text-accent" />
                   {perk}
-                </li>
+                </div>
               ))}
-            </ul>
+            </div>
 
-            <button onClick={go} className={'mt-6 w-full ' + (p.popular ? 'btn-primary' : 'btn-ghost')}>
+            <div className="mt-5 flex-1 rounded-xl border border-edge bg-surface/40 p-3">
+              <div className="text-[10px] uppercase tracking-wider text-muted">Free plan includes</div>
+              <ul className="mt-2 space-y-1.5">
+                {FREE_PERKS.map((perk) => (
+                  <li key={perk} className="flex items-start gap-2 text-xs text-muted/90">
+                    <Check size={12} className="mt-0.5 shrink-0 text-emerald-400" />
+                    {perk}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <button onClick={go} className={'mt-5 w-full ' + (p.popular ? 'btn-primary' : 'btn-ghost')}>
               {p.popular ? <Flame size={16} /> : <Sparkles size={16} />}
               Get {p.label}
             </button>
@@ -88,7 +115,8 @@ export default function PricingSection() {
       </div>
 
       <p className="mt-6 text-center text-xs text-muted">
-        Accepted: <span className="text-white/70">Litecoin (LTC)</span> · <span className="text-white/70">Solana (SOL)</span> — manual verify, no card needed.
+        Accepted: <span className="text-white/70">Litecoin (LTC)</span> ·{' '}
+        <span className="text-white/70">Solana (SOL)</span> — automatic on-chain verification.
       </p>
     </section>
   );
