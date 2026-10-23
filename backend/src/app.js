@@ -23,7 +23,7 @@ export function createApp() {
 
   // ---- global middleware PEHLE ----
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
-  app.use(cors({ origin: env.FRONTEND_URL, credentials: true }));
+  app.use(cors({ origin: env.FRONTEND_URL.replace(/\/$/, ''), credentials: true }));
   app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser());
   app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev'));
@@ -42,18 +42,13 @@ export function createApp() {
   app.use('/api/giveaways', giveawayRoutes);
   app.use('/api/admin', adminRoutes);
   app.use('/api/ingest', ingestRoutes);
-  app.use('/api/premium', premiumRoutes);   // <-- yahan shift kiya
+  app.use('/api/premium', premiumRoutes);   // <-- yahan
 
   app.get('/api/health', (_req, res) => res.json({ ok: true, ts: Date.now() }));
-
   app.use((_req, res) => res.status(404).json({ ok: false, error: 'not_found' }));
-
   app.use((err, _req, res, _next) => {
     console.error('[error]', err);
-    res.status(err.status || 500).json({
-      ok: false,
-      error: env.NODE_ENV === 'production' ? 'internal_error' : err.message,
-    });
+    res.status(err.status || 500).json({ ok: false, error: env.NODE_ENV === 'production' ? 'internal_error' : err.message });
   });
 
   return app;
