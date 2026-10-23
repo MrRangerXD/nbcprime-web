@@ -17,9 +17,11 @@ import Giveaways from './pages/dash/Giveaways';
 import Profile from './pages/dash/Profile';
 import Admin from './pages/admin/Admin';
 import Premium from './pages/Premium';
+import ScrollToTop from './components/ScrollToTop';
 
 export default function App() {
   return (
+    <ScrollToTop />
     <Routes>
       <Route element={<PublicLayout />}>
         <Route path="/" element={<Home />} />
