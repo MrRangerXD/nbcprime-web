@@ -64,6 +64,15 @@ router.post('/users/:id/premium', async (req, res) => {
   res.json({ ok: true, data: user });
 });
 
+router.post('/premium/:id/approve', requireOwner, async (req, res) => {
+  const r = await one('select * from premium_requests where id = $1', [req.params.id]);
+  if (!r) return res.status(404).json({ ok: false, error: 'not_found' });
+  await q(`update premium_requests set status='approved', reviewed_at=now(), reviewed_by=$2 where id=$1`,
+    [r.id, req.user.discordId]);
+  await grantPremium(r.discordId, r.durationDays, 'manual');
+  res.json({ ok: true });
+});
+
 router.post('/users/:id/admin', requireOwner, async (req, res) => {
   const user = await one(
     `update users set is_admin = $2, updated_at = now() where discord_id = $1 returning *`,
