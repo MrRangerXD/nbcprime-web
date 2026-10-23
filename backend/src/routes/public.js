@@ -100,11 +100,28 @@ router.get('/posts', async (req, res) => {
   res.json({ ok: true, data: rows, limit, offset });
 });
 
+// ek IP ek slug ko 1 ghante me ek hi baar count kare
+const viewSeen = new Map();
+const shouldCountView = (slug, ip) => {
+  const key = slug + '|' + ip;
+  const last = viewSeen.get(key);
+  const now = Date.now();
+  if (last && now - last < 60 * 60 * 1000) return false;
+  if (viewSeen.size > 5000) viewSeen.clear();
+  viewSeen.set(key, now);
+  return true;
+};
+
 router.get('/posts/:slug', async (req, res) => {
-  const post = await one(
-    `update posts set views = views + 1 where slug = $1 and published returning *`,
-    [req.params.slug]
-  );
+  const count = shouldCountView(req.params.slug, req.ip);
+
+  const post = count
+    ? await one(
+        `update posts set views = views + 1 where slug = $1 and published returning *`,
+        [req.params.slug]
+      )
+    : await one(`select * from posts where slug = $1 and published`, [req.params.slug]);
+
   if (!post) return res.status(404).json({ ok: false, error: 'not_found' });
   res.json({ ok: true, data: post });
 });
