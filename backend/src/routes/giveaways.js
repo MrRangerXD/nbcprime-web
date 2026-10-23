@@ -10,11 +10,13 @@ router.use(requireAuth);
 router.get('/', async (req, res) => {
   const filters = [];
   const params = [];
+
   if (req.query.guildId) { params.push(req.query.guildId); filters.push(`guild_id = $${params.length}`); }
   if (req.query.status) { params.push(req.query.status); filters.push(`status = $${params.length}`); }
-  const where = filters.length ? 'where ' + filters.join(' and ') : '';
 
+  const where = filters.length ? 'where ' + filters.join(' and ') : '';
   const rows = await many(`select * from giveaways ${where} order by created_at desc limit 100`, params);
+
   res.json({ ok: true, data: rows });
 });
 
@@ -45,7 +47,7 @@ router.post('/', requireAdmin, async (req, res) => {
   );
 
   await audit(req, 'giveaway:create', guildId, { prize, minutes, winners });
-  res.json({ ok: true, data: doc, jobId: result.data?.job_id ?? null });
+  res.json({ ok: true, data: doc, jobId: result.job_id });
 });
 
 router.post('/:id/end', requireAdmin, async (req, res) => {
@@ -60,7 +62,7 @@ router.post('/:id/end', requireAdmin, async (req, res) => {
 
   await q(`update giveaways set status = 'ended', ended_at = now() where id = $1`, [req.params.id]);
   await audit(req, 'giveaway:end', g.guildId);
-  res.json({ ok: true, jobId: r.data?.job_id ?? null });
+  res.json({ ok: true, jobId: r.job_id });
 });
 
 router.delete('/:id', requireAdmin, async (req, res) => {
