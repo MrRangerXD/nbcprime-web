@@ -39,6 +39,10 @@ export default function Navbar() {
           ))}
         </div>
 
+        <a href="/#pricing" className="rounded-lg px-3.5 py-2 text-sm text-muted transition-colors hover:text-white">
+  Pricing
+</a>
+
         <div className="hidden items-center gap-3 md:flex">
           {user ? (
             <Link to="/dashboard" className="btn-ghost">
