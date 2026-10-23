@@ -16,6 +16,7 @@ import ServerDetail from './pages/dash/ServerDetail';
 import Giveaways from './pages/dash/Giveaways';
 import Profile from './pages/dash/Profile';
 import Admin from './pages/admin/Admin';
+import Premium from './pages/Premium';
 
 export default function App() {
   return (
@@ -27,6 +28,8 @@ export default function App() {
         <Route path="/blogs" element={<Posts type="blog" />} />
         <Route path="/news" element={<Posts type="news" />} />
         <Route path="/post/:slug" element={<PostView />} />
+        <Route path="/dashboard/premium" element={<Premium />} />
+        { to: '/dashboard/premium', label: 'Get Premium', icon: Sparkles }
       </Route>
 
       <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
