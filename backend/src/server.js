@@ -8,14 +8,26 @@ import { env } from './config/env.js';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const app = createApp();
 
+async function applySql() {
+  // schema.sql SABSE PEHLE, warna hardening fail hogi
+  const files = (await fs.readdir(here)).filter((f) => f.endsWith('.sql'));
+  files.sort((a, b) => {
+    if (a === 'schema.sql') return -1;
+    if (b === 'schema.sql') return 1;
+    return a.localeCompare(b);
+  });
+
+  for (const file of files) {
+    await pool.query(await fs.readFile(path.join(here, file), 'utf8'));
+    console.log('[db] applied', file);
+  }
+}
+
 async function boot() {
   await connectDB();
+  await applySql();
 
-  const schema = await fs.readFile(path.join(here, 'schema.sql'), 'utf8');
-  await pool.query(schema);
-  console.log('[db] schema verified');
-
-  app.listen(env.PORT, () => console.log('API on :' + env.PORT + ' [' + env.NODE_ENV + ']'));
+  const server = app.listen(env.PORT, () => console.log('API on :' + env.PORT + ' [' + env.NODE_ENV + ']'));
 
   setInterval(async () => {
     try {
@@ -24,6 +36,17 @@ async function boot() {
       await pool.query('delete from cache where expires_at < now()');
     } catch (e) { console.error('[cleanup]', e.message); }
   }, 6 * 60 * 60 * 1000);
+
+  const shutdown = async (sig) => {
+    console.log('[shutdown]', sig);
+    server.close(async () => {
+      await pool.end().catch(() => {});
+      process.exit(0);
+    });
+    setTimeout(() => process.exit(0), 8000).unref();
+  };
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 }
 
 boot().catch((err) => {
