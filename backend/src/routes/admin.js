@@ -57,15 +57,15 @@ router.get('/users', async (req, res) => {
 
 router.post('/users/:id/premium', async (req, res) => {
   const value = !!req.body.value;
-  // FIX: pehle expired premium_until pe toggle kaam nahi karta tha
+  // FIX: lifetime ko 'web:<id>' nahi, 'lifetime' likho warna detect nahi hota
   const user = await one(
     `update users
         set is_premium = $2,
-            premium_source = $3,
+            premium_source = case when $2 then 'lifetime' else null end,
             premium_until = case when $2 then null else premium_until end,
             updated_at = now()
       where discord_id = $1 returning *`,
-    [req.params.id, value, value ? 'web:' + req.user.discordId : null]
+    [req.params.id, value]
   );
   await audit(req, value ? 'premium:add' : 'premium:remove', req.params.id);
   res.json({ ok: true, data: user });
