@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { Check, Sparkles, Loader2, Copy, CheckCheck, RefreshCw, Crown } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
-import { Badge, Loader } from '../components/ui';
+import { Badge } from '../components/ui';
 
 const FALLBACK = [
-  { id: '10d',  label: '10 Days',  inr: 30,  usd: 0.32 },
-  { id: '30d',  label: '30 Days',  inr: 80,  usd: 0.84 },
+  { id: '10d', label: '10 Days', inr: 30, usd: 0.32 },
+  { id: '30d', label: '30 Days', inr: 80, usd: 0.84 },
   { id: 'life', label: 'Lifetime', inr: 435, usd: 4.57 },
 ];
 
@@ -19,16 +19,49 @@ const PERKS = [
 ];
 
 const COINS = [
-  { id: 'LTC', label: 'Litecoin', ticker: 'LTC' },
-  { id: 'SOL', label: 'Solana',   ticker: 'SOL' },
+  { id: 'LTC', label: 'Litecoin' },
+  { id: 'SOL', label: 'Solana' },
 ];
 
 const qr = (data) =>
   `https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=0&data=${encodeURIComponent(data)}`;
 
+const fmtAmount = (n) => {
+  const s = Number(n).toFixed(8);
+  return s.includes('.') ? s.replace(/0+$/, '').replace(/\.$/, '') : s;
+};
+
+function PaymentHistory() {
+  const [rows, setRows] = useState([]);
+
+  useEffect(() => {
+    api.get('/api/premium/history').then((d) => setRows(d.data || [])).catch(() => {});
+  }, []);
+
+  if (!rows.length) return null;
+
+  return (
+    <div className="card overflow-hidden p-0">
+      <div className="border-b border-edge px-5 py-4 font-display font-semibold">Payment history</div>
+      {rows.map((r) => (
+        <div key={r.id} className="flex items-center justify-between border-b border-edge/60 px-5 py-3 text-sm last:border-0">
+          <div>
+            <span className="font-medium">{r.plan}</span>
+            <span className="ml-2 text-muted">{fmtAmount(r.amountCrypto)} {r.currency}</span>
+          </div>
+          <Badge tone={r.status === 'approved' ? 'green' : r.status === 'pending' ? 'amber' : 'default'}>
+            {r.status}
+          </Badge>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Premium() {
   const { user, refresh } = useAuth();
   const navigate = useNavigate();
+
   const [plans, setPlans] = useState(FALLBACK);
   const [status, setStatus] = useState(null);
   const [coin, setCoin] = useState('LTC');
@@ -45,7 +78,6 @@ export default function Premium() {
     try {
       const s = await api.get('/api/premium/status');
       setStatus(s);
-      // A5: page reload ke baad bhi intent wapas aa jaye
       if (s.pending && !intent) {
         setIntent(s.pending);
         setLeft(Math.max(0, Math.floor((new Date(s.pending.expiresAt) - Date.now()) / 1000)));
@@ -54,8 +86,9 @@ export default function Premium() {
   };
 
   useEffect(() => {
-    api.get('/api/premium/plans').then((r) => r?.plans && setPlans(r.plans)).catch(() => {});
+    api.get('/api/premium/plans').then((r) => r?.plans?.length && setPlans(r.plans)).catch(() => {});
     loadStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   useEffect(() => {
@@ -63,12 +96,12 @@ export default function Premium() {
     if (!intent) return;
     poll.current = setInterval(() => check(true), 15000);
     return () => clearInterval(poll.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [intent]);
 
   useEffect(() => {
     if (!intent) return;
-    const tick = () =>
-      setLeft(Math.max(0, Math.floor((new Date(intent.expiresAt) - Date.now()) / 1000)));
+    const tick = () => setLeft(Math.max(0, Math.floor((new Date(intent.expiresAt) - Date.now()) / 1000)));
     tick();
     const t = setInterval(tick, 1000);
     return () => clearInterval(t);
@@ -80,6 +113,10 @@ export default function Premium() {
     setMsg(null);
     try {
       const r = await api.post('/api/premium/intent', { plan: planId, currency: coin });
+      if (r.settled?.length) {
+        setMsg({ ok: true, text: 'Your earlier payment was confirmed and Premium is now active.' });
+        refresh?.();
+      }
       setIntent(r.intent);
       setLeft(Math.floor((new Date(r.intent.expiresAt) - Date.now()) / 1000));
     } catch (e) {
@@ -88,13 +125,6 @@ export default function Premium() {
       setBusy(false);
     }
   };
-
-  const r = await api.post('/api/premium/intent', { plan: planId, currency: coin });
-      if (r.settled?.length) {
-        setMsg({ ok: true, text: 'Your earlier payment was confirmed and Premium is active.' });
-        refresh?.();
-      }
-      setIntent(r.intent);
 
   const check = async (silent) => {
     if (!intent) return;
@@ -109,19 +139,16 @@ export default function Premium() {
       } else if (r.status === 'expired') {
         setMsg({ ok: false, text: 'Payment window expired. Start again.' });
         setIntent(null);
+      } else if (r.error === 'chain_unreachable') {
+        if (!silent) setMsg({ ok: false, text: 'Could not reach the chain. Retry in a moment.' });
       } else if (!silent) {
         setMsg({ ok: false, text: 'No matching transaction yet. Give it a minute.' });
       }
     } catch {
-      if (!silent) setMsg({ ok: false, text: 'Could not reach the chain. Retry.' });
+      if (!silent) setMsg({ ok: false, text: 'Verify failed. Retry.' });
     } finally {
       setChecking(false);
     }
-  };
-
-  const fmtAmount = (n) => {
-    const s = Number(n).toFixed(8);
-    return s.includes('.') ? s.replace(/0+$/, '').replace(/\.$/, '') : s;
   };
 
   const changePlan = async () => {
@@ -132,7 +159,7 @@ export default function Premium() {
   };
 
   const copy = async (val, key) => {
-    try { await navigator.clipboard.writeText(val); } catch { /* noop */ }
+    try { await navigator.clipboard.writeText(val); } catch { /* blocked */ }
     setCopied(key);
     setTimeout(() => setCopied(null), 1500);
   };
@@ -184,10 +211,7 @@ export default function Premium() {
           {plans.map((p) => {
             const popular = p.id === '30d';
             return (
-              <div
-                key={p.id}
-                className={'card relative p-5 ' + (popular ? 'border-accent/50 bg-accent/[0.06]' : '')}
-              >
+              <div key={p.id} className={'card relative p-5 ' + (popular ? 'border-accent/50 bg-accent/[0.06]' : '')}>
                 {popular && (
                   <span className="absolute -top-2.5 left-5 rounded-full bg-accent px-2.5 py-0.5 text-[10px] font-semibold text-white">
                     Most popular
@@ -201,16 +225,11 @@ export default function Premium() {
                 <ul className="mt-4 space-y-2">
                   {PERKS.map((perk) => (
                     <li key={perk} className="flex items-start gap-2 text-[13px] text-muted">
-                      <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent" />
-                      {perk}
+                      <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent" />{perk}
                     </li>
                   ))}
                 </ul>
-                <button
-                  onClick={() => start(p.id)}
-                  disabled={busy}
-                  className={'mt-5 w-full ' + (popular ? 'btn-primary' : 'btn-ghost')}
-                >
+                <button onClick={() => start(p.id)} disabled={busy} className={'mt-5 w-full ' + (popular ? 'btn-primary' : 'btn-ghost')}>
                   {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                   Choose {p.label.toLowerCase()}
                 </button>
@@ -236,7 +255,7 @@ export default function Premium() {
 
             <div className="mt-3 text-[11px] uppercase tracking-wider text-muted">Send exactly</div>
             <div className="mt-1 flex items-center gap-2">
-              <span className="font-mono text-lg">{intent.amount} {intent.currency}</span>
+              <span className="font-mono text-lg">{fmtAmount(intent.amount)} {intent.currency}</span>
               <button onClick={() => copy(String(intent.amount), 'amt')} className="text-muted hover:text-white">
                 {copied === 'amt' ? <CheckCheck className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
               </button>
@@ -265,6 +284,8 @@ export default function Premium() {
         </div>
       )}
 
+      <PaymentHistory />
+
       <div className="card p-5 text-sm text-muted">
         <div className="font-display font-semibold text-white">How it works</div>
         <p className="mt-1">
@@ -272,31 +293,6 @@ export default function Premium() {
           transaction confirms on-chain, Premium activates automatically — no admin approval needed.
         </p>
       </div>
-    </div>
-  );
-}
-
-<PaymentHistory />
-
-function PaymentHistory() {
-  const [rows, setRows] = useState([]);
-  useEffect(() => { api.get('/api/premium/history').then((d) => setRows(d.data || [])).catch(() => {}); }, []);
-  if (!rows.length) return null;
-
-  return (
-    <div className="card overflow-hidden p-0">
-      <div className="border-b border-edge px-5 py-4 font-display font-semibold">Payment history</div>
-      {rows.map((r) => (
-        <div key={r.id} className="flex items-center justify-between border-b border-edge/60 px-5 py-3 text-sm last:border-0">
-          <div>
-            <span className="font-medium">{r.plan}</span>
-            <span className="ml-2 text-muted">{fmtAmount(r.amountCrypto)} {r.currency}</span>
-          </div>
-          <Badge tone={r.status === 'approved' ? 'green' : r.status === 'pending' ? 'amber' : 'default'}>
-            {r.status}
-          </Badge>
-        </div>
-      ))}
     </div>
   );
 }
