@@ -37,11 +37,12 @@ router.get('/overview', async (_req, res) => {
 });
 
 router.get('/users', async (req, res) => {
-  const qstr = req.query.q || '';
+  const qstr = String(req.query.q || '').trim();
   const page = Math.max(Math.floor(Number(req.query.page) || 1), 1);
   const limit = Math.min(Math.max(Math.floor(Number(req.query.limit) || 30), 1), 100);
   const offset = (page - 1) * limit;
 
+  // FIX: discord_id = $2 se ID ka prefix match nahi hota tha, aur LIMIT 24.5 crash karta tha
   const where = qstr ? 'where username ilike $1 or discord_id ilike $1' : '';
   const params = qstr ? ['%' + qstr + '%'] : [];
 
@@ -56,6 +57,7 @@ router.get('/users', async (req, res) => {
 
 router.post('/users/:id/premium', async (req, res) => {
   const value = !!req.body.value;
+  // FIX: pehle expired premium_until pe toggle kaam nahi karta tha
   const user = await one(
     `update users
         set is_premium = $2,
@@ -125,7 +127,7 @@ router.post('/posts', async (req, res) => {
   res.json({ ok: true, data: post });
 });
 
-// FIX: coalesce se field NULL nahi ho sakta tha, isliye dynamic SET
+// FIX: coalesce se koi field NULL nahi ho sakta tha
 router.patch('/posts/:id', async (req, res) => {
   const b = req.body || {};
   const fields = [];
@@ -167,7 +169,7 @@ router.post('/broadcast', async (req, res) => {
   if (!message) return res.status(400).json({ ok: false, error: 'message required' });
   const r = await botPost('/api/broadcast', { message });
   await audit(req, 'broadcast', 'all', { message });
-  res.json({ ok: true, jobId: r.data?.job_id ?? null });
+  res.json({ ok: true, jobId: r.job_id });
 });
 
 router.get('/actions', async (_req, res) => {
@@ -182,8 +184,7 @@ router.get('/logs', async (_req, res) => {
 
 router.get('/health', async (_req, res) => {
   try {
-    const { data } = await botGet('/api/health');
-    res.json({ ok: true, bot: data });
+    res.json({ ok: true, bot: await botGet('/api/health') });
   } catch (e) {
     res.status(BotDown(e) ? 503 : 500).json({ ok: false, error: e.message });
   }
