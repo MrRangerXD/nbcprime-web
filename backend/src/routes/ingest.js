@@ -107,14 +107,30 @@ router.post('/event', async (req, res) => {
         }
         break;
 
-      case 'action_result':
+      case 'action_result': {
         await q(
           `update action_logs
            set status = $2, result = $3, error = $4, finished_at = now()
            where job_id = $1`,
           [payload.job_id, payload.status, JSON.stringify(payload.result ?? null), payload.error ?? null]
         );
+
+        // FIX: giveaway ka message_id pehle kabhi save hi nahi hota tha,
+        // isliye /:id/end hamesha fail karta tha
+        const messageId = payload.result?.message_id;
+        if (messageId && payload.guild_id) {
+          await q(
+            `update giveaways set message_id = $1
+              where id = (
+                select id from giveaways
+                 where message_id is null and status = 'active' and guild_id = $2
+                 order by created_at desc limit 1
+              )`,
+            [String(messageId), payload.guild_id]
+          );
+        }
         break;
+      
 
       default:
         break;
