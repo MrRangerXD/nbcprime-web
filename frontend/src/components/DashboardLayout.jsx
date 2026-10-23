@@ -14,6 +14,7 @@ const nav = [
   { to: '/dashboard/servers', label: 'Servers', icon: Server },
   { to: '/dashboard/giveaways', label: 'Giveaways', icon: Gift },
   { to: '/dashboard/profile', label: 'Profile', icon: UserIcon },
+  { to: '/dashboard/premium', label: 'Get Premium', icon: Sparkles },
 ];
 
 export default function DashboardLayout() {
