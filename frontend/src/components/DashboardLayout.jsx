@@ -76,7 +76,7 @@ export default function DashboardLayout() {
           <div className="flex items-center gap-3 rounded-xl bg-surface/60 p-3">
             <img src={avatarUrl(user?.id, user?.avatar)} alt="" className="h-9 w-9 rounded-full" />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{user.globalName || user.username}</p>
+              <p className="truncate text-sm font-medium">{user?.globalName || user?.username}</p>
               <div className="mt-0.5 flex gap-1">
                 {user.isOwner && <Badge tone="purple">Owner</Badge>}
                 {user.isAdmin && !user.isOwner && <Badge tone="amber">Admin</Badge>}
