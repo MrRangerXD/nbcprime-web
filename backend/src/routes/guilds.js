@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { many, one, q } from '../db.js';
-import { requireAuth, requireAdmin, requireOwner } from '../middleware/auth.js';
+import { requireAuth, requireGuildAdmin, requireOwner } from '../middleware/auth.js';
 import { botGet, botPost, botDelete } from '../services/bot.js';
 import { audit } from '../services/audit.js';
 
@@ -50,7 +50,7 @@ router.get('/:guildId', async (req, res) => {
   });
 });
 
-router.post('/:guildId/execute', requireAdmin, async (req, res) => {
+router.post('/:guildId/execute', requireGuildAdmin, async (req, res) => {
   const { action, args, force } = req.body || {};
   if (!action) return res.status(400).json({ ok: false, error: 'action_required' });
 
@@ -93,14 +93,14 @@ router.get('/:guildId/actions', async (req, res) => {
   res.json({ ok: true, data: rows });
 });
 
-router.post('/:guildId/whitelist', requireAdmin, async (req, res) => {
+router.post('/:guildId/whitelist', requireGuildAdmin, async (req, res) => {
   await botPost('/api/whitelist', { guild_id: req.params.guildId });
   await q('update guilds set is_whitelisted = true, updated_at = now() where guild_id = $1', [req.params.guildId]);
   await audit(req, 'whitelist:add', req.params.guildId);
   res.json({ ok: true });
 });
 
-router.delete('/:guildId/whitelist', requireAdmin, async (req, res) => {
+router.delete('/:guildId/whitelist', requireGuildAdmin, async (req, res) => {
   await botDelete('/api/whitelist/' + req.params.guildId);
   await q('update guilds set is_whitelisted = false, updated_at = now() where guild_id = $1', [req.params.guildId]);
   await audit(req, 'whitelist:remove', req.params.guildId);
