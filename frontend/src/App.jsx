@@ -1,50 +1,60 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
-import PublicLayout from './components/PublicLayout';
-import DashboardLayout from './components/DashboardLayout';
-import ProtectedRoute from './components/ProtectedRoute';
+import express from 'express';
+import helmet from 'helmet';
+import cors from 'cors';
+import morgan from 'morgan';
+import cookieParser from 'cookie-parser';
+import rateLimit from 'express-rate-limit';
+import { env } from './config/env.js';
+import { attachUser } from './middleware/auth.js';
 
-import Home from './pages/Home';
-import Login from './pages/Login';
-import Socials from './pages/Socials';
-import Posts from './pages/Posts';
-import PostView from './pages/PostView';
+import authRoutes from './routes/auth.js';
+import publicRoutes from './routes/public.js';
+import meRoutes from './routes/me.js';
+import guildRoutes from './routes/guilds.js';
+import lbRoutes from './routes/leaderboard.js';
+import giveawayRoutes from './routes/giveaways.js';
+import adminRoutes from './routes/admin.js';
+import ingestRoutes from './routes/ingest.js';
+import premiumRoutes from './routes/premium.js';
 
-import Overview from './pages/dash/Overview';
-import Leaderboard from './pages/dash/Leaderboard';
-import Servers from './pages/dash/Servers';
-import ServerDetail from './pages/dash/ServerDetail';
-import Giveaways from './pages/dash/Giveaways';
-import Profile from './pages/dash/Profile';
-import Admin from './pages/admin/Admin';
-import Premium from './pages/Premium';
-import ScrollToTop from './components/ScrollToTop';
+export function createApp() {
+  const app = express();
+  app.set('trust proxy', 1);
 
-export default function App() {
-  return (
-    <ScrollToTop />
-    <Routes>
-      <Route element={<PublicLayout />}>
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/socials" element={<Socials />} />
-        <Route path="/blogs" element={<Posts type="blog" />} />
-        <Route path="/news" element={<Posts type="news" />} />
-        <Route path="/post/:slug" element={<PostView />} />
-      </Route>
+  // ---- global middleware FIRST ----
+  app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+  app.use(cors({ origin: env.FRONTEND_URL.replace(/\/$/, ''), credentials: true }));
+  app.use(express.json({ limit: '1mb' }));
+  app.use(cookieParser());
+  app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
-      <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-        <Route index element={<Overview />} />
-        <Route path="top-users" element={<Leaderboard scope="users" />} />
-        <Route path="top-servers" element={<Leaderboard scope="servers" />} />
-        <Route path="servers" element={<Servers />} />
-        <Route path="servers/:guildId" element={<ServerDetail />} />
-        <Route path="giveaways" element={<Giveaways />} />
-        <Route path="premium" element={<Premium />} />
-        <Route path="profile" element={<Profile />} />
-        <Route path="admin" element={<Admin />} />
-      </Route>
+  app.use('/api', rateLimit({ windowMs: 60000, max: 300, standardHeaders: true }));
+  app.use('/api/auth', rateLimit({ windowMs: 60000, max: 60 }));
 
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
-  );
+  app.use(attachUser);
+
+  // ---- routes AFTER ----
+  app.use('/api/auth', authRoutes);
+  app.use('/api/public', publicRoutes);
+  app.use('/api/me', meRoutes);
+  app.use('/api/guilds', guildRoutes);
+  app.use('/api/leaderboard', lbRoutes);
+  app.use('/api/giveaways', giveawayRoutes);
+  app.use('/api/admin', adminRoutes);
+  app.use('/api/ingest', ingestRoutes);
+  app.use('/api/premium', premiumRoutes); // <- was mounted before middleware
+
+  app.get('/api/health', (_req, res) => res.json({ ok: true, ts: Date.now() }));
+
+  app.use((_req, res) => res.status(404).json({ ok: false, error: 'not_found' }));
+
+  app.use((err, _req, res, _next) => {
+    console.error('[error]', err);
+    res.status(err.status || 500).json({
+      ok: false,
+      error: env.NODE_ENV === 'production' ? 'internal_error' : err.message,
+    });
+  });
+
+  return app;
 }
