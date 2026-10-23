@@ -17,13 +17,10 @@ router.get('/overview', async (_req, res) => {
        (select count(*) from giveaways where status = 'active')::int as giveaways,
        (select count(*) from command_logs where created_at > now() - interval '24 hours')::int as commands_today`
   );
-
   const recentAudit = await many('select * from audit_logs order by created_at desc limit 20');
 
   let bot = { online: false };
-  try {
-    bot = { online: true, ...((await botGet('/api/stats')).data || {}) };
-  } catch { /* offline */ }
+  try { bot = { online: true, ...(await botGet('/api/stats')).data }; } catch { /* offline */ }
 
   res.json({
     ok: true,
@@ -41,16 +38,16 @@ router.get('/overview', async (_req, res) => {
 
 router.get('/users', async (req, res) => {
   const qstr = req.query.q || '';
-  const page = Math.max(Number(req.query.page) || 1, 1);
-  const limit = Math.min(Math.max(Number(req.query.limit) || 30, 1), 100);
+  const page = Math.max(Math.floor(Number(req.query.page) || 1), 1);
+  const limit = Math.min(Math.max(Math.floor(Number(req.query.limit) || 30), 1), 100);
   const offset = (page - 1) * limit;
 
   const where = qstr ? 'where username ilike $1 or discord_id = $2' : '';
   const params = qstr ? ['%' + qstr + '%', qstr] : [];
 
   const rows = await many(
-    `select * from users ${where} order by last_login_at desc nulls last limit $${params.length + 1} offset $${params.length + 2}`,
-    [...params, limit, offset]
+    `select * from users ${where} order by last_login_at desc nulls last limit ${limit} offset ${offset}`,
+    params
   );
   const total = await one(`select count(*)::int as n from users ${where}`, params);
 
@@ -58,15 +55,16 @@ router.get('/users', async (req, res) => {
 });
 
 router.post('/users/:id/premium', async (req, res) => {
-  const value = !!req.body?.value;
-
+  const value = !!req.body.value;
   const user = await one(
-    `update users set is_premium = $2, premium_source = $3, premium_until = $4, updated_at = now()
+    `update users
+        set is_premium = $2,
+            premium_source = $3,
+            premium_until = case when $2 then null else premium_until end,
+            updated_at = now()
       where discord_id = $1 returning *`,
-    [req.params.id, value, value ? 'web:' + req.user.discordId : null, value ? null : null]
+    [req.params.id, value, value ? 'web:' + req.user.discordId : null]
   );
-  if (!user) return res.status(404).json({ ok: false, error: 'not_found' });
-
   await audit(req, value ? 'premium:add' : 'premium:remove', req.params.id);
   res.json({ ok: true, data: user });
 });
@@ -74,38 +72,29 @@ router.post('/users/:id/premium', async (req, res) => {
 router.post('/premium/:id/approve', requireOwner, async (req, res) => {
   const r = await one('select * from premium_requests where id = $1', [req.params.id]);
   if (!r) return res.status(404).json({ ok: false, error: 'not_found' });
-
-  await q(
-    `update premium_requests set status='approved', reviewed_at=now(), reviewed_by=$2 where id=$1`,
-    [r.id, req.user.discordId]
-  );
+  await q(`update premium_requests set status='approved', reviewed_at=now(), reviewed_by=$2 where id=$1`,
+    [r.id, req.user.discordId]);
   await grantPremium(r.discordId, r.durationDays, 'manual');
-
   res.json({ ok: true });
 });
 
 router.post('/users/:id/admin', requireOwner, async (req, res) => {
   const user = await one(
     `update users set is_admin = $2, updated_at = now() where discord_id = $1 returning *`,
-    [req.params.id, !!req.body?.value]
+    [req.params.id, !!req.body.value]
   );
-  if (!user) return res.status(404).json({ ok: false, error: 'not_found' });
-
-  await audit(req, 'admin:toggle', req.params.id, { value: !!req.body?.value });
+  await audit(req, 'admin:toggle', req.params.id, { value: !!req.body.value });
   res.json({ ok: true, data: user });
 });
 
 router.post('/users/:id/ban', async (req, res) => {
-  const value = !!req.body?.value;
-
+  const value = !!req.body.value;
   const user = await one(
     `update users set is_banned = $2, blacklist_reason = $3, updated_at = now()
-      where discord_id = $1 returning *`,
-    [req.params.id, value, req.body?.reason || null]
+     where discord_id = $1 returning *`,
+    [req.params.id, value, req.body.reason || null]
   );
-  if (!user) return res.status(404).json({ ok: false, error: 'not_found' });
-
-  await audit(req, value ? 'user:ban' : 'user:unban', req.params.id, { reason: req.body?.reason });
+  await audit(req, value ? 'user:ban' : 'user:unban', req.params.id, { reason: req.body.reason });
   res.json({ ok: true, data: user });
 });
 
@@ -136,15 +125,13 @@ router.post('/posts', async (req, res) => {
   res.json({ ok: true, data: post });
 });
 
+// FIX: coalesce se field NULL nahi ho sakta tha, isliye dynamic SET
 router.patch('/posts/:id', async (req, res) => {
   const b = req.body || {};
   const fields = [];
   const params = [req.params.id];
 
-  const push = (col, val) => {
-    params.push(val);
-    fields.push(`${col} = $${params.length}`);
-  };
+  const push = (col, val) => { params.push(val); fields.push(`${col} = $${params.length}`); };
 
   if (b.title !== undefined) push('title', b.title);
   if (b.excerpt !== undefined) push('excerpt', b.excerpt);
@@ -152,12 +139,9 @@ router.patch('/posts/:id', async (req, res) => {
   if (b.coverImage !== undefined) push('cover_image', b.coverImage);
   if (b.type !== undefined) push('type', b.type);
   if (b.tags !== undefined) push('tags', b.tags);
-
   if (typeof b.published === 'boolean') {
     push('published', b.published);
-    fields.push(
-      `published_at = case when $${params.length} and published_at is null then now() else published_at end`
-    );
+    fields.push(`published_at = case when $${params.length} and published_at is null then now() else published_at end`);
   }
 
   if (!fields.length) return res.status(400).json({ ok: false, error: 'nothing_to_update' });
@@ -181,10 +165,8 @@ router.delete('/posts/:id', async (req, res) => {
 router.post('/broadcast', async (req, res) => {
   const { message } = req.body;
   if (!message) return res.status(400).json({ ok: false, error: 'message required' });
-
   const r = await botPost('/api/broadcast', { message });
   await audit(req, 'broadcast', 'all', { message });
-
   res.json({ ok: true, jobId: r.data?.job_id ?? null });
 });
 
