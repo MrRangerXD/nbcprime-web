@@ -10,14 +10,17 @@ import { audit } from '../services/audit.js';
 const router = Router();
 const DISCORD_API = 'https://discord.com/api/v10';
 
+const stateCookie = {
+  httpOnly: true,
+  secure: env.COOKIE_SECURE,
+  maxAge: 600000,
+  sameSite: 'lax',
+  path: '/',
+};
+
 router.get('/discord', (req, res) => {
   const state = crypto.randomBytes(16).toString('hex');
-  res.cookie('nbc_state', state, {
-    httpOnly: true,
-    secure: env.COOKIE_SECURE,
-    maxAge: 600000,
-    sameSite: 'lax',
-  });
+  res.cookie('nbc_state', state, stateCookie);
 
   const params = new URLSearchParams({
     client_id: env.DISCORD_CLIENT_ID,
@@ -30,11 +33,19 @@ router.get('/discord', (req, res) => {
   res.redirect('https://discord.com/oauth2/authorize?' + params);
 });
 
+// FIX: permissions null/missing hone pe BigInt() throw karta tha aur pura login fail hota tha
+const isGuildAdmin = (g) => {
+  if (g.owner) return true;
+  try { return (BigInt(g.permissions ?? '0') & 0x20n) === 0x20n; } catch { return false; }
+};
+
 router.get('/discord/callback', async (req, res) => {
   const { code, state } = req.query;
   const expected = req.cookies?.nbc_state;
-  if (!code) return res.redirect(env.FRONTEND_URL + '/login?error=no_code');
-  if (!state || state !== expected) return res.redirect(env.FRONTEND_URL + '/login?error=bad_state');
+  const fail = (reason) => res.redirect(env.FRONTEND_URL + '/login?error=' + reason);
+
+  if (!code) return fail('no_code');
+  if (!state || state !== expected) return fail('bad_state');
 
   try {
     const tokenRes = await axios.post(
@@ -46,22 +57,20 @@ router.get('/discord/callback', async (req, res) => {
         code,
         redirect_uri: env.DISCORD_REDIRECT_URI,
       }),
-      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, timeout: 10000 }
     );
 
     const { access_token, refresh_token, expires_in } = tokenRes.data;
 
     const meRes = await axios.get(DISCORD_API + '/users/@me', {
-      headers: { Authorization: 'Bearer ' + access_token },
+      headers: { Authorization: 'Bearer ' + access_token }, timeout: 10000,
     });
     const guildsRes = await axios.get(DISCORD_API + '/users/@me/guilds', {
-      headers: { Authorization: 'Bearer ' + access_token },
+      headers: { Authorization: 'Bearer ' + access_token }, timeout: 10000,
     });
 
     const me = meRes.data;
-    const adminGuilds = guildsRes.data
-      .filter((g) => (BigInt(g.permissions) & 0x20n) === 0x20n || g.owner)
-      .map((g) => g.id);
+    const adminGuilds = (guildsRes.data || []).filter(isGuildAdmin).map((g) => g.id);
 
     const user = await one(
       `insert into users
@@ -91,17 +100,18 @@ router.get('/discord/callback', async (req, res) => {
     );
 
     res.cookie(cookieName, signToken(user), cookieOptions());
-    res.clearCookie('nbc_state');
+    res.clearCookie('nbc_state', stateCookie);
     await audit({ user, ip: req.ip }, 'login', user.discordId);
     res.redirect(env.FRONTEND_URL + '/dashboard');
   } catch (err) {
     console.error('[auth]', err.response?.data || err.message);
-    res.redirect(env.FRONTEND_URL + '/login?error=oauth_failed');
+    fail('oauth_failed');
   }
 });
 
 router.post('/logout', (req, res) => {
   res.clearCookie(cookieName, { ...cookieOptions(), maxAge: undefined });
+  res.clearCookie('nbc_state', stateCookie); // FIX: ye pehle clear nahi hota tha
   res.json({ ok: true });
 });
 
