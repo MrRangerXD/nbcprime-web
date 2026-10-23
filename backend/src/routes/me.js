@@ -5,7 +5,11 @@ import { many, scalar } from '../db.js';
 const router = Router();
 router.use(requireAuth);
 
-router.get('/', (req, res) => res.json({ ok: true, user: req.user }));
+// FIX: poora row (encrypted access_token/refresh_token) leak ho raha tha
+router.get('/', (req, res) => {
+  const { accessToken, refreshToken, ...user } = req.user;
+  res.json({ ok: true, user });
+});
 
 router.get('/stats', async (req, res) => {
   const uid = req.user.discordId;
