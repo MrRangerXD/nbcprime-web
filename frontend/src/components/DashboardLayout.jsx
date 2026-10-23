@@ -1,7 +1,8 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Link, Outlet } from 'react-router-dom';
 import { useState } from 'react';
 import {
-  LayoutDashboard, Trophy, Server, Gift, User as UserIcon, Shield, LogOut, Menu, X, BarChart3,
+  LayoutDashboard, Trophy, Server, Gift, User as UserIcon, Shield, LogOut,
+  Menu, X, BarChart3, Sparkles, ChevronRight,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { avatarUrl } from '../lib/format';
@@ -13,6 +14,7 @@ const nav = [
   { to: '/dashboard/top-servers', label: 'Top Servers', icon: BarChart3 },
   { to: '/dashboard/servers', label: 'Servers', icon: Server },
   { to: '/dashboard/giveaways', label: 'Giveaways', icon: Gift },
+  { to: '/dashboard/premium', label: 'Premium', icon: Sparkles },
   { to: '/dashboard/profile', label: 'Profile', icon: UserIcon },
 ];
 
@@ -25,16 +27,27 @@ export default function DashboardLayout() {
 
   return (
     <div className="min-h-screen lg:flex">
-      <aside className={'fixed inset-y-0 z-40 w-64 border-r border-edge bg-panel/95 backdrop-blur-xl transition-transform lg:static lg:translate-x-0 ' + (open ? 'translate-x-0' : '-translate-x-full')}>
-        <div className="flex h-16 items-center justify-between px-5 border-b border-edge">
+      {open && (
+        <div className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm lg:hidden" onClick={() => setOpen(false)} />
+      )}
+
+      <aside
+        className={
+          'fixed inset-y-0 z-40 flex w-64 flex-col border-r border-edge bg-panel/95 backdrop-blur-xl transition-transform lg:static lg:translate-x-0 ' +
+          (open ? 'translate-x-0' : '-translate-x-full')
+        }
+      >
+        <div className="flex h-16 shrink-0 items-center justify-between border-b border-edge px-5">
           <NavLink to="/" className="flex items-center gap-2.5">
             <img src="/logo.png" alt="" className="h-8 w-8 rounded-lg" />
-            <span className="font-display font-bold">NBC<span className="text-accent">Prime</span></span>
+            <span className="font-display font-bold">
+              NBC<span className="text-accent">Prime</span>
+            </span>
           </NavLink>
           <button className="lg:hidden" onClick={() => setOpen(false)}><X size={18} /></button>
         </div>
 
-        <nav className="p-3 space-y-1">
+        <nav className="flex-1 space-y-1 overflow-y-auto p-3">
           {items.map((item) => (
             <NavLink
               key={item.to}
@@ -42,18 +55,34 @@ export default function DashboardLayout() {
               end={item.end}
               onClick={() => setOpen(false)}
               className={({ isActive }) =>
-                'flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm transition-all border ' +
+                'flex items-center gap-3 rounded-xl border px-3.5 py-2.5 text-sm transition-all ' +
                 (isActive
-                  ? 'bg-white/10 text-white border-edge'
-                  : 'text-muted hover:text-white hover:bg-white/5 border-transparent')
+                  ? 'border-edge bg-white/10 text-white'
+                  : 'border-transparent text-muted hover:bg-white/5 hover:text-white')
               }
             >
               <item.icon size={17} /> {item.label}
+              {item.to === '/dashboard/premium' && user && !user.isPremium && (
+                <span className="ml-auto rounded-md bg-accent/15 px-1.5 py-0.5 text-[10px] font-semibold text-accent">
+                  NEW
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>
 
-        <div className="absolute bottom-0 w-full border-t border-edge p-3">
+        {user && !user.isPremium && (
+          <Link
+            to="/dashboard/premium"
+            onClick={() => setOpen(false)}
+            className="mx-3 mb-2 flex shrink-0 items-center gap-2 rounded-xl border border-accent/30 bg-accent/10 px-3 py-2.5 text-xs font-medium text-accent transition hover:bg-accent/20"
+          >
+            <Sparkles size={14} /> Upgrade to Premium
+            <ChevronRight size={14} className="ml-auto" />
+          </Link>
+        )}
+
+        <div className="shrink-0 border-t border-edge p-3">
           <div className="flex items-center gap-3 rounded-xl bg-surface/60 p-3">
             <img src={avatarUrl(user.id, user.avatar)} alt="" className="h-9 w-9 rounded-full" />
             <div className="min-w-0 flex-1">
@@ -71,12 +100,12 @@ export default function DashboardLayout() {
         </div>
       </aside>
 
-      <div className="flex-1 min-w-0">
+      <div className="min-w-0 flex-1">
         <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-edge bg-void/80 px-5 backdrop-blur-xl lg:hidden">
           <button onClick={() => setOpen(true)}><Menu size={20} /></button>
           <span className="font-display font-semibold">Dashboard</span>
         </header>
-        <main className="p-5 lg:p-8 max-w-7xl mx-auto">
+        <main className="mx-auto max-w-7xl p-5 lg:p-8">
           <Outlet />
         </main>
       </div>
