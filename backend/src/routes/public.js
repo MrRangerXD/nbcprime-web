@@ -4,22 +4,28 @@ import { botGet } from '../services/bot.js';
 
 const router = Router();
 
-// chhota in-process cache, taaki homepage refresh bot VPS ko hammer na kare
 const cache = new Map();
+let inflight = null;
 
+// FIX: cache miss pe 10 parallel request 10 baar bot ko maarte the (stampede)
 const cached = async (key, ttlMs, fn) => {
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < ttlMs) return hit.value;
 
-  const value = await fn();
-  cache.set(key, { at: Date.now(), value });
+  if (inflight && inflight.key === key) return inflight.promise;
 
-  if (cache.size > 64) {
-    for (const [k, v] of cache) {
-      if (Date.now() - v.at > ttlMs) cache.delete(k);
-    }
-  }
-  return value;
+  const promise = fn()
+    .then((value) => {
+      cache.set(key, { at: Date.now(), value });
+      if (cache.size > 64) {
+        for (const [k, v] of cache) if (Date.now() - v.at > ttlMs) cache.delete(k);
+      }
+      return value;
+    })
+    .finally(() => { if (inflight && inflight.key === key) inflight = null; });
+
+  inflight = { key, promise };
+  return promise;
 };
 
 router.get('/stats', async (_req, res) => {
