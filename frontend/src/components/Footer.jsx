@@ -19,6 +19,7 @@ export default function Footer() {
             <li><Link to="/blogs" className="hover:text-accent">Blogs</Link></li>
             <li><Link to="/news" className="hover:text-accent">News</Link></li>
             <li><Link to="/socials" className="hover:text-accent">Socials</Link></li>
+            <li><Link to="/dashboard/premium" className="hover:text-accent">Premium</Link></li>
           </ul>
         </div>
         <div>
