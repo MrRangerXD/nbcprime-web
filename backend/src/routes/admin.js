@@ -17,10 +17,13 @@ router.get('/overview', async (_req, res) => {
        (select count(*) from giveaways where status = 'active')::int as giveaways,
        (select count(*) from command_logs where created_at > now() - interval '24 hours')::int as commands_today`
   );
+
   const recentAudit = await many('select * from audit_logs order by created_at desc limit 20');
 
   let bot = { online: false };
-  try { bot = { online: true, ...(await botGet('/api/stats')).data }; } catch { /* offline */ }
+  try {
+    bot = { online: true, ...((await botGet('/api/stats')).data || {}) };
+  } catch { /* offline */ }
 
   res.json({
     ok: true,
@@ -38,16 +41,16 @@ router.get('/overview', async (_req, res) => {
 
 router.get('/users', async (req, res) => {
   const qstr = req.query.q || '';
-  const page = Number(req.query.page) || 1;
-  const limit = Number(req.query.limit) || 30;
+  const page = Math.max(Number(req.query.page) || 1, 1);
+  const limit = Math.min(Math.max(Number(req.query.limit) || 30, 1), 100);
   const offset = (page - 1) * limit;
 
   const where = qstr ? 'where username ilike $1 or discord_id = $2' : '';
   const params = qstr ? ['%' + qstr + '%', qstr] : [];
 
   const rows = await many(
-    `select * from users ${where} order by last_login_at desc nulls last limit ${limit} offset ${offset}`,
-    params
+    `select * from users ${where} order by last_login_at desc nulls last limit $${params.length + 1} offset $${params.length + 2}`,
+    [...params, limit, offset]
   );
   const total = await one(`select count(*)::int as n from users ${where}`, params);
 
@@ -55,12 +58,15 @@ router.get('/users', async (req, res) => {
 });
 
 router.post('/users/:id/premium', async (req, res) => {
-  const value = !!req.body.value;
+  const value = !!req.body?.value;
+
   const user = await one(
-    `update users set is_premium = $2, premium_source = $3, updated_at = now()
-     where discord_id = $1 returning *`,
-    [req.params.id, value, value ? 'web:' + req.user.discordId : null]
+    `update users set is_premium = $2, premium_source = $3, premium_until = $4, updated_at = now()
+      where discord_id = $1 returning *`,
+    [req.params.id, value, value ? 'web:' + req.user.discordId : null, value ? null : null]
   );
+  if (!user) return res.status(404).json({ ok: false, error: 'not_found' });
+
   await audit(req, value ? 'premium:add' : 'premium:remove', req.params.id);
   res.json({ ok: true, data: user });
 });
@@ -68,29 +74,38 @@ router.post('/users/:id/premium', async (req, res) => {
 router.post('/premium/:id/approve', requireOwner, async (req, res) => {
   const r = await one('select * from premium_requests where id = $1', [req.params.id]);
   if (!r) return res.status(404).json({ ok: false, error: 'not_found' });
-  await q(`update premium_requests set status='approved', reviewed_at=now(), reviewed_by=$2 where id=$1`,
-    [r.id, req.user.discordId]);
+
+  await q(
+    `update premium_requests set status='approved', reviewed_at=now(), reviewed_by=$2 where id=$1`,
+    [r.id, req.user.discordId]
+  );
   await grantPremium(r.discordId, r.durationDays, 'manual');
+
   res.json({ ok: true });
 });
 
 router.post('/users/:id/admin', requireOwner, async (req, res) => {
   const user = await one(
     `update users set is_admin = $2, updated_at = now() where discord_id = $1 returning *`,
-    [req.params.id, !!req.body.value]
+    [req.params.id, !!req.body?.value]
   );
-  await audit(req, 'admin:toggle', req.params.id, { value: !!req.body.value });
+  if (!user) return res.status(404).json({ ok: false, error: 'not_found' });
+
+  await audit(req, 'admin:toggle', req.params.id, { value: !!req.body?.value });
   res.json({ ok: true, data: user });
 });
 
 router.post('/users/:id/ban', async (req, res) => {
-  const value = !!req.body.value;
+  const value = !!req.body?.value;
+
   const user = await one(
     `update users set is_banned = $2, blacklist_reason = $3, updated_at = now()
-     where discord_id = $1 returning *`,
-    [req.params.id, value, req.body.reason || null]
+      where discord_id = $1 returning *`,
+    [req.params.id, value, req.body?.reason || null]
   );
-  await audit(req, value ? 'user:ban' : 'user:unban', req.params.id, { reason: req.body.reason });
+  if (!user) return res.status(404).json({ ok: false, error: 'not_found' });
+
+  await audit(req, value ? 'user:ban' : 'user:unban', req.params.id, { reason: req.body?.reason });
   res.json({ ok: true, data: user });
 });
 
@@ -103,7 +118,7 @@ router.post('/posts', async (req, res) => {
   const { type, title, excerpt, content, coverImage, tags, published } = req.body;
   if (!type || !title) return res.status(400).json({ ok: false, error: 'type and title required' });
 
-  let slug = slugify(title, { lower: true, strict: true });
+  let slug = slugify(title, { lower: true, strict: true }) || 'post';
   const clash = await one('select 1 as x from posts where slug = $1', [slug]);
   if (clash) slug = slug + '-' + Date.now().toString(36);
 
@@ -122,21 +137,37 @@ router.post('/posts', async (req, res) => {
 });
 
 router.patch('/posts/:id', async (req, res) => {
-  const b = req.body;
+  const b = req.body || {};
+  const fields = [];
+  const params = [req.params.id];
+
+  const push = (col, val) => {
+    params.push(val);
+    fields.push(`${col} = $${params.length}`);
+  };
+
+  if (b.title !== undefined) push('title', b.title);
+  if (b.excerpt !== undefined) push('excerpt', b.excerpt);
+  if (b.content !== undefined) push('content', b.content);
+  if (b.coverImage !== undefined) push('cover_image', b.coverImage);
+  if (b.type !== undefined) push('type', b.type);
+  if (b.tags !== undefined) push('tags', b.tags);
+
+  if (typeof b.published === 'boolean') {
+    push('published', b.published);
+    fields.push(
+      `published_at = case when $${params.length} and published_at is null then now() else published_at end`
+    );
+  }
+
+  if (!fields.length) return res.status(400).json({ ok: false, error: 'nothing_to_update' });
+
   const post = await one(
-    `update posts set
-       title = coalesce($2, title),
-       excerpt = coalesce($3, excerpt),
-       content = coalesce($4, content),
-       cover_image = coalesce($5, cover_image),
-       type = coalesce($6, type),
-       published = coalesce($7, published),
-       published_at = case when $7 = true and published_at is null then now() else published_at end,
-       updated_at = now()
-     where id = $1 returning *`,
-    [req.params.id, b.title ?? null, b.excerpt ?? null, b.content ?? null,
-     b.coverImage ?? null, b.type ?? null, typeof b.published === 'boolean' ? b.published : null]
+    `update posts set ${fields.join(', ')}, updated_at = now() where id = $1 returning *`,
+    params
   );
+  if (!post) return res.status(404).json({ ok: false, error: 'not_found' });
+
   await audit(req, 'post:update', req.params.id);
   res.json({ ok: true, data: post });
 });
@@ -150,9 +181,11 @@ router.delete('/posts/:id', async (req, res) => {
 router.post('/broadcast', async (req, res) => {
   const { message } = req.body;
   if (!message) return res.status(400).json({ ok: false, error: 'message required' });
+
   const r = await botPost('/api/broadcast', { message });
   await audit(req, 'broadcast', 'all', { message });
-  res.json({ ok: true, jobId: r.job_id });
+
+  res.json({ ok: true, jobId: r.data?.job_id ?? null });
 });
 
 router.get('/actions', async (_req, res) => {
@@ -167,7 +200,8 @@ router.get('/logs', async (_req, res) => {
 
 router.get('/health', async (_req, res) => {
   try {
-    res.json({ ok: true, bot: await botGet('/api/health') });
+    const { data } = await botGet('/api/health');
+    res.json({ ok: true, bot: data });
   } catch (e) {
     res.status(BotDown(e) ? 503 : 500).json({ ok: false, error: e.message });
   }
