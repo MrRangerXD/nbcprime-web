@@ -12,12 +12,19 @@ export default function Giveaways() {
   const [form, setForm] = useState({ guildId: '', channelId: '', prize: '', minutes: 60, winners: 1 });
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState(null);
+  const [tick, setTick] = useState(0);
 
   const load = () => api.get('/api/giveaways').then((d) => setRows(d.data)).catch(() => setRows([]));
 
   useEffect(() => {
     load();
     api.get('/api/guilds?limit=100').then((d) => setGuilds(d.data)).catch(() => {});
+  }, []);
+
+  // FIX: countdown khud update na ho raha tha
+  useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), 30000);
+    return () => clearInterval(t);
   }, []);
 
   const create = async (e) => {
@@ -40,9 +47,10 @@ export default function Giveaways() {
     }
   };
 
-  const end = async (id) => {
+  const end = async (g) => {
+    // FIX: message_id bhejo, warna bot ko "giveaway not found" milta hai
     try {
-      await api.post('/api/giveaways/' + id + '/end', {});
+      await api.post('/api/giveaways/' + g._id + '/end', { messageId: g.messageId || undefined });
       setToast({ ok: true, msg: 'Ending giveaway...' });
       setTimeout(load, 3000);
     } catch (e) {
@@ -59,7 +67,7 @@ export default function Giveaways() {
 
       {toast && <div className={'card p-3 text-sm ' + (toast.ok ? 'text-emerald-300' : 'text-red-300')}>{toast.msg}</div>}
 
-      {user.isAdmin && (
+      {user?.isAdmin && (
         <Card>
           <h2 className="font-display font-semibold">New Giveaway</h2>
           <form onSubmit={create} className="mt-4 grid gap-3 md:grid-cols-2">
@@ -112,9 +120,11 @@ export default function Giveaways() {
                   {g.status === 'active' ? timeLeft(g.endsAt) : g.status}
                 </Badge>
               </div>
-              <p className="mt-2 text-xs text-muted">{g.guildName || g.guildId} - {g.winnersCount} winner(s)</p>
-              {g.status === 'active' && user.isAdmin && (
-                <button onClick={() => end(g._id)} className="btn-ghost mt-4 w-full">
+              <p className="mt-2 text-xs text-muted">
+                {g.guildName || g.guildId} - {g.winnersCount} winner(s)
+              </p>
+              {g.status === 'active' && user?.isAdmin && (
+                <button onClick={() => end(g)} className="btn-ghost mt-4 w-full">
                   <StopCircle size={15} /> End now
                 </button>
               )}
