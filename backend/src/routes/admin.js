@@ -42,8 +42,8 @@ router.get('/users', async (req, res) => {
   const limit = Math.min(Math.max(Math.floor(Number(req.query.limit) || 30), 1), 100);
   const offset = (page - 1) * limit;
 
-  const where = qstr ? 'where username ilike $1 or discord_id = $2' : '';
-  const params = qstr ? ['%' + qstr + '%', qstr] : [];
+  const where = qstr ? 'where username ilike $1 or discord_id ilike $1' : '';
+  const params = qstr ? ['%' + qstr + '%'] : [];
 
   const rows = await many(
     `select * from users ${where} order by last_login_at desc nulls last limit ${limit} offset ${offset}`,
