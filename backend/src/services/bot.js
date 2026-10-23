@@ -54,6 +54,7 @@ async function call(method, path, { body, params } = {}) {
     err.data = data;
     throw err;
   }
+
   return { data };
 }
 
