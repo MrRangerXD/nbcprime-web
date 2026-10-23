@@ -1,17 +1,20 @@
 import { useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Badge } from '../components/ui';
 
 export default function Login() {
   const { user, login, loading } = useAuth();
   const [params] = useSearchParams();
+  const location = useLocation();
   const navigate = useNavigate();
+
   const error = params.get('error');
+  const from = location.state?.from || '/dashboard';
 
   useEffect(() => {
-    if (user && !loading) navigate('/dashboard', { replace: true });
-  }, [user, loading, navigate]);
+    if (user && !loading) navigate(from, { replace: true });
+  }, [user, loading, navigate, from]);
 
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-md flex-col items-center justify-center px-5">
