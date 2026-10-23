@@ -8,7 +8,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const app = createApp();
 
 let ready = null;
-let lastCleanup = 0;
+let lastCleanup = Date.now(); // FIX: cold start pe turant 3 DELETE na maaro
 
 async function boot() {
   await connectDB();
@@ -44,9 +44,9 @@ async function maybeCleanup() {
 export default async function handler(req, res) {
   try {
     await ensureReady();
-    await maybeCleanup();
   } catch (err) {
     return res.status(500).json({ ok: false, error: 'boot_failed', detail: err.message });
   }
+  maybeCleanup().catch(() => {}); // await na karo
   return app(req, res);
 }
