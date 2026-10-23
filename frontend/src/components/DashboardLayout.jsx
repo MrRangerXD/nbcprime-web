@@ -23,26 +23,20 @@ export default function DashboardLayout() {
   const [open, setOpen] = useState(false);
 
   const items = [...nav];
-  if (user && user.isAdmin) items.push({ to: '/dashboard/admin', label: 'Admin Panel', icon: Shield });
+  if (user?.isAdmin) items.push({ to: '/dashboard/admin', label: 'Admin Panel', icon: Shield });
 
   return (
     <div className="min-h-screen lg:flex">
-      {open && (
-        <div className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm lg:hidden" onClick={() => setOpen(false)} />
-      )}
+      {open && <div className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm lg:hidden" onClick={() => setOpen(false)} />}
 
-      <aside
-        className={
-          'fixed inset-y-0 z-40 flex w-64 flex-col border-r border-edge bg-panel/95 backdrop-blur-xl transition-transform lg:static lg:translate-x-0 ' +
-          (open ? 'translate-x-0' : '-translate-x-full')
-        }
-      >
+      <aside className={
+        'fixed inset-y-0 z-40 flex w-64 flex-col border-r border-edge bg-panel/95 backdrop-blur-xl transition-transform lg:static lg:translate-x-0 ' +
+        (open ? 'translate-x-0' : '-translate-x-full')
+      }>
         <div className="flex h-16 shrink-0 items-center justify-between border-b border-edge px-5">
           <NavLink to="/" className="flex items-center gap-2.5">
             <img src="/logo.png" alt="" className="h-8 w-8 rounded-lg" />
-            <span className="font-display font-bold">
-              NBC<span className="text-accent">Prime</span>
-            </span>
+            <span className="font-display font-bold">NBC<span className="text-accent">Prime</span></span>
           </NavLink>
           <button className="lg:hidden" onClick={() => setOpen(false)}><X size={18} /></button>
         </div>
@@ -56,16 +50,12 @@ export default function DashboardLayout() {
               onClick={() => setOpen(false)}
               className={({ isActive }) =>
                 'flex items-center gap-3 rounded-xl border px-3.5 py-2.5 text-sm transition-all ' +
-                (isActive
-                  ? 'border-edge bg-white/10 text-white'
-                  : 'border-transparent text-muted hover:bg-white/5 hover:text-white')
+                (isActive ? 'border-edge bg-white/10 text-white' : 'border-transparent text-muted hover:bg-white/5 hover:text-white')
               }
             >
               <item.icon size={17} /> {item.label}
               {item.to === '/dashboard/premium' && user && !user.isPremium && (
-                <span className="ml-auto rounded-md bg-accent/15 px-1.5 py-0.5 text-[10px] font-semibold text-accent">
-                  NEW
-                </span>
+                <span className="ml-auto rounded-md bg-accent/15 px-1.5 py-0.5 text-[10px] font-semibold text-accent">NEW</span>
               )}
             </NavLink>
           ))}
