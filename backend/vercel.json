@@ -5,7 +5,7 @@
   "functions": {
     "api/index.js": {
       "includeFiles": "src/schema.sql",
-      "maxDuration": 30
+      "maxDuration": 60
     }
   }
 }
