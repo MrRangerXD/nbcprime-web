@@ -18,7 +18,11 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    const onUnauth = () => setUser(null);
+    window.addEventListener('nbc:unauthorized', onUnauth);
+    return () => window.removeEventListener('nbc:unauthorized', onUnauth);
+  }, []);
 
   const login = () => { window.location.href = loginUrl; };
 
