@@ -8,19 +8,21 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const app = createApp();
 
 let ready = null;
-let lastCleanup = Date.now(); // FIX: cold start pe turant 3 DELETE na maaro
+let lastCleanup = Date.now();
 
 async function boot() {
   await connectDB();
-  const schema = await fs.readFile(path.join(here, '..', 'src', 'schema.sql'), 'utf8');
-  await pool.query(schema);
+  const dir = path.join(here, '..', 'src');
+  const files = (await fs.readdir(dir)).filter((f) => f.endsWith('.sql'));
+  files.sort((a, b) => (a === 'schema.sql' ? -1 : b === 'schema.sql' ? 1 : a.localeCompare(b)));
+  for (const f of files) await pool.query(await fs.readFile(path.join(dir, f), 'utf8'));
   console.log('[db] schema verified');
 }
 
 function ensureReady() {
   if (!ready) {
     ready = boot().catch((err) => {
-      ready = null; // let the next request retry instead of staying poisoned
+      ready = null;
       console.error('[boot] failed:', err.message);
       throw err;
     });
@@ -28,7 +30,6 @@ function ensureReady() {
   return ready;
 }
 
-// server.js used setInterval(), which doesn't fire on Vercel — run it opportunistically
 async function maybeCleanup() {
   if (Date.now() - lastCleanup < 6 * 60 * 60 * 1000) return;
   lastCleanup = Date.now();
@@ -42,11 +43,14 @@ async function maybeCleanup() {
 }
 
 export default async function handler(req, res) {
+  // FIX: Vercel rewrite se aane wale /api/index ko normalise karo
+  if (req.url.startsWith('/api/index')) req.url = req.url.slice('/api/index'.length) || '/';
+
   try {
     await ensureReady();
   } catch (err) {
     return res.status(500).json({ ok: false, error: 'boot_failed', detail: err.message });
   }
-  maybeCleanup().catch(() => {}); // await na karo
+  maybeCleanup().catch(() => {});
   return app(req, res);
 }
