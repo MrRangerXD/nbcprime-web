@@ -34,7 +34,7 @@ export const cookieDomainFor = (req) => {
 
 // SameSite=None ke liye Secure MUST hai. Prod me frontend aur api alag hosts hain,
 // to browser ke liye request CROSS-SITE hai -> 'lax' cookie XHR pe drop ho jaati hai.
-const secureCookies = () => env.NODE_ENV === 'production' || env.COOKIE_SECURE;
+export const secureCookies = () => env.NODE_ENV === 'production' || env.COOKIE_SECURE;
 
 export const cookieOptions = (req) => ({
   httpOnly: true,
