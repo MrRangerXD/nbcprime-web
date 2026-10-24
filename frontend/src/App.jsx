@@ -21,7 +21,7 @@ import ServerDetail from './pages/dash/ServerDetail';
 import Giveaways from './pages/dash/Giveaways';
 import Premium from './pages/dash/Premium';
 import Profile from './pages/dash/Profile';
-import Admin from './pages/dash/Admin';
+import Admin from './pages/admin/Admin';
 
 export default function App() {
   return (
