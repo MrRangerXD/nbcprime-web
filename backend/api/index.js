@@ -13,8 +13,10 @@ let bootError = null;
 let schemaError = null;
 let retryAfter = 0;
 let lastCleanup = Date.now();
+let lastSchemaRun = 0; // FIX: warm boot pe schema dobara na chale
 
 const RETRY_MS = 15000;
+const SCHEMA_TTL_MS = 60 * 60 * 1000;
 
 // FIX: har step ka apna label -> error me exact file dikhegi, generic 'load/db' nahi
 async function step(label, fn) {
@@ -57,6 +59,10 @@ async function boot() {
 
   // FIX: schema fail ho to bootError alag rakhna, warna DB connected hone par bhi db:false dikhta hai
   try {
+    // FIX: warm invocation pe har baar saari .sql files dobara na chalao
+    if (schemaError === null && lastSchemaRun && Date.now() - lastSchemaRun < SCHEMA_TTL_MS) return;
+    lastSchemaRun = Date.now();
+
     const dir = path.join(here, '..', 'src');
     const files = (await fs.readdir(dir)).filter((f) => f.endsWith('.sql'));
     files.sort((a, b) => (a === 'schema.sql' ? -1 : b === 'schema.sql' ? 1 : a.localeCompare(b)));
@@ -148,6 +154,18 @@ export default async function handler(req, res) {
         stack: e.stack,
       });
     }
+
+    // FIX: diag public tha -> CRON_SECRET set ho to gate karo
+    // header: X-Cron-Secret  |  ya query: /api/diag?key=...
+    const secret = env.CRON_SECRET;
+    if (secret) {
+      let qkey = null;
+      try { qkey = new URL(req.url || '/', 'http://x').searchParams.get('key'); } catch {}
+      if (req.headers['x-cron-secret'] !== secret && qkey !== secret) {
+        return res.status(403).json({ ok: false, error: 'forbidden' });
+      }
+    }
+
     return res.json({
       ok: !bootError,
       ts: Date.now(),
