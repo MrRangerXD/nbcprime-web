@@ -130,6 +130,7 @@ router.post('/event', async (req, res) => {
           );
         }
         break;
+      }
       
 
       default:
