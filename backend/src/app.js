@@ -20,12 +20,22 @@ import premiumRoutes from './routes/premium.js';
 const NO_AUTH_PREFIXES = ['/api/public', '/api/ingest'];
 const NO_AUTH_EXACT = ['/api/health', '/api/diag'];
 
-// FIX: sirf ek origin nahi — localhost + vercel previews bhi
+// FIX: hardcoded domain hata diya -> apne hi env se origin nikaalo
+const frontendOrigin = (() => {
+  try { return new URL(env.FRONTEND_URL).origin; } catch { return null; }
+})();
+const apiOrigin = (() => {
+  try { return new URL(env.DISCORD_REDIRECT_URI).origin; } catch { return null; }
+})();
+
+// FIX: pehle koi bhi *.vercel.app allow tha (credentials:true ke saath)
+// ab sirf apna frontend, apna api, localhost aur apne project ke previews
 const isAllowedOrigin = (origin) => {
   if (!origin) return true;
-  if (origin === env.FRONTEND_URL) return true;
+  if (frontendOrigin && origin === frontendOrigin) return true;
+  if (apiOrigin && origin === apiOrigin) return true;
   if (/^https?:\/\/localhost(:\d+)?$/.test(origin)) return true;
-  if (/^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin)) return true;
+  if (/^https:\/\/nbcprime[a-z0-9-]*\.vercel\.app$/i.test(origin)) return true;
   return false;
 };
 
@@ -44,19 +54,9 @@ export function createApp() {
     origin: (origin, cb) => cb(null, isAllowedOrigin(origin)),
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'X-Ingest-Key'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'X-Ingest-Key', 'X-Cron-Secret'],
   }));
   app.use(express.json({ limit: '1mb' }));
-  const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
-  app.use('/api', (req, res, next) => {
-    if (SAFE_METHODS.has(req.method)) return next();
-    const raw = req.get('origin') || req.get('referer');
-    if (!raw) return next();
-    let origin;
-    try { origin = new URL(raw).origin; } catch { return next(); }
-    if (isAllowedOrigin(origin)) return next();
-    return res.status(403).json({ ok: false, error: 'csrf_origin_mismatch' });
-  });
 
   // FIX: body-less POST pe req.body undefined hota hai -> destructuring crash (giveaways/admin)
   app.use((req, _res, next) => {
@@ -66,6 +66,21 @@ export function createApp() {
 
   app.use(cookieParser());
   app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+
+  // FIX: CSRF — prod me sameSite:'none' hai, to cross-site POST pe cookie lagti hai
+  // aur body-less POST {} ban jaata hai -> origin check zaroori
+  const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+  app.use('/api', (req, res, next) => {
+    if (SAFE_METHODS.has(req.method)) return next();
+    // bot / server-to-server (key wale) ko mat roko
+    if (req.get('x-ingest-key') || req.get('x-api-key')) return next();
+    const raw = req.get('origin') || req.get('referer');
+    if (!raw) return next();
+    let origin;
+    try { origin = new URL(raw).origin; } catch { return next(); }
+    if (isAllowedOrigin(origin)) return next();
+    return res.status(403).json({ ok: false, error: 'csrf_origin_mismatch' });
+  });
 
   app.use('/api', rateLimit({ windowMs: 60000, max: 300, standardHeaders: true }));
   app.use('/api/auth', rateLimit({ windowMs: 60000, max: 60 }));
