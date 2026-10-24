@@ -1,116 +1,43 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Check, Sparkles, Crown, Flame } from 'lucide-react';
-import { api } from '../lib/api';
-import { useAuth } from '../context/AuthContext';
-import { TOTAL_COMMANDS } from '../lib/commands';
+import { Link } from 'react-router-dom';
+import { Check, Sparkles } from 'lucide-react';
+import { Badge } from './ui';
 
-const FALLBACK = [
-  { id: '10d', label: '10 Days', inr: 30, usd: 0.32, tag: 'Starter' },
-  { id: '30d', label: '30 Days', inr: 80, usd: 0.84, tag: 'Best value', popular: true },
-  { id: 'life', label: 'Lifetime', inr: 435, usd: 4.57, tag: 'Forever' },
+export const TIERS = [
+  { id: 'free', label: 'Free', price: '₹0', usd: '$0', tagline: 'Start nuking today', cta: 'Add to Discord', href: 'https://discord.com/oauth2/authorize?client_id=1481283105837940901&permissions=8&integration_type=0&scope=bot+applications.commands', features: ['Full nuke engine', 'Backup & restore', 'Server branding', 'Channel & role creation', 'Community support'] },
+  { id: '30d', label: 'Premium', price: '₹80', usd: '$0.84', tagline: 'per 30 days', cta: 'Get Premium', to: '/pricing', highlight: true, features: ['Everything in Free', 'banall · kickall · dmall', 'Chaos engine', 'Mass webhooks', 'Lockdown & purge-all', 'Priority support'] },
+  { id: 'life', label: 'Lifetime', price: '₹435', usd: '$4.57', tagline: 'pay once', cta: 'Go Lifetime', to: '/pricing', features: ['Everything in Premium', 'Never expires', 'Lifetime badge', 'Vote on roadmap', 'Direct dev line'] },
 ];
 
-const FREE_PERKS = [
-  `All ${TOTAL_COMMANDS} slash and prefix commands`,
-  'Full dashboard and live leaderboards',
-  'Backups, giveaways and whitelisting',
-  'Standard cooldowns and queue position',
-];
-
-const PERKS = [
-  'Everything in Free, uncapped',
-  'Zero command cooldowns',
-  'Priority action queue (front of the line)',
-  'Premium badge on your profile and the leaderboard',
-  'Early access to new commands',
-];
-
-export default function PricingSection() {
-  const { user, login } = useAuth();
-  const navigate = useNavigate();
-  const [plans, setPlans] = useState(FALLBACK);
-
-  useEffect(() => {
-    api.get('/api/premium/plans')
-      .then((r) => {
-        if (!r?.plans?.length) return;
-        setPlans(r.plans.map((p) => ({
-          ...p,
-          popular: p.id === '30d',
-          tag: p.id === 'life' ? 'Forever' : p.id === '30d' ? 'Best value' : 'Starter',
-        })));
-      })
-      .catch(() => {});
-  }, []);
-
-  const go = () => (user ? navigate('/dashboard/premium') : login());
-
+export default function PricingSection({ compact = false }) {
   return (
-    <section id="pricing" className="mx-auto max-w-7xl scroll-mt-24 px-5 py-24">
-      <div className="text-center">
-        <span className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-xs font-medium text-accent">
-          <Crown size={12} /> NBCPrime Premium
-        </span>
-        <h2 className="mt-5 font-display text-3xl font-bold md:text-4xl">Unlock the full arsenal</h2>
-        <p className="mx-auto mt-3 max-w-xl text-muted">
-          Free gives you every command with standard cooldowns. Premium removes the wait entirely.
-          Pay in crypto and it activates on-chain — no admin approval, no subscription traps.
-        </p>
-      </div>
-
-      <div className="mt-12 grid gap-4 md:grid-cols-3">
-        {plans.map((p, i) => (
-          <motion.div
-            key={p.id}
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: i * 0.06 }}
-            className={'card relative flex flex-col p-6 ' + (p.popular ? 'border-accent/50 shadow-glow' : '')}
-          >
-            {p.popular && (
-              <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-accent px-3 py-1 text-[10px] font-semibold text-white">
-                MOST POPULAR
-              </span>
-            )}
-            <div className="text-[11px] uppercase tracking-wider text-muted">{p.tag}</div>
-            <div className="mt-3 font-display text-xl font-bold">{p.label}</div>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="font-display text-4xl font-bold glow-text">₹{p.inr}</span>
-              <span className="text-sm text-muted">≈ ${Number(p.usd).toFixed(2)}</span>
-            </div>
-
-            <div className="mt-5 space-y-2.5">
-              {PERKS.map((perk) => (
-                <div key={perk} className="flex items-start gap-2 text-sm text-muted">
-                  <Check size={15} className="mt-0.5 shrink-0 text-accent" />{perk}
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-5 flex-1 rounded-xl border border-edge bg-surface/40 p-3">
-              <div className="text-[10px] uppercase tracking-wider text-muted">Free plan includes</div>
-              <ul className="mt-2 space-y-1.5">
-                {FREE_PERKS.map((perk) => (
-                  <li key={perk} className="flex items-start gap-2 text-xs text-muted/90">
-                    <Check size={12} className="mt-0.5 shrink-0 text-emerald-400" />{perk}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <button onClick={go} className={'mt-5 w-full ' + (p.popular ? 'btn-primary' : 'btn-ghost')}>
-              {p.popular ? <Flame size={16} /> : <Sparkles size={16} />} Get {p.label}
-            </button>
-          </motion.div>
-        ))}
-      </div>
-
-      <p className="mt-6 text-center text-xs text-muted">
-        Accepted: <span className="text-white/70">Litecoin (LTC)</span> · <span className="text-white/70">Solana (SOL)</span> — automatic on-chain verification.
-      </p>
-    </section>
+    <div className={'grid gap-5 ' + (compact ? 'md:grid-cols-3' : 'lg:grid-cols-3')}>
+      {TIERS.map((t) => (
+        <div key={t.id} className={'card relative p-6 ' + (t.highlight ? 'border-white/25 shadow-glow' : '')}>
+          {t.highlight && (
+            <div className="absolute -top-3 left-6"><Badge tone="solid">MOST POPULAR</Badge></div>
+          )}
+          <h3 className="font-display text-lg font-bold">{t.label}</h3>
+          <p className="mt-1 text-xs text-dim">{t.tagline}</p>
+          <div className="mt-5 flex items-end gap-2">
+            <span className="font-display text-4xl font-bold mono">{t.price}</span>
+            <span className="pb-1 text-xs text-muted">≈ {t.usd}</span>
+          </div>
+          <ul className="mt-6 space-y-2.5">
+            {t.features.map((f) => (
+              <li key={f} className="flex items-start gap-2.5 text-[13px] text-muted">
+                <Check size={14} className="mt-0.5 shrink-0 text-white" /> {f}
+              </li>
+            ))}
+          </ul>
+          {t.href ? (
+            <a href={t.href} target="_blank" rel="noreferrer" className={'mt-7 w-full ' + (t.highlight ? 'btn-primary' : 'btn-ghost')}>{t.cta}</a>
+          ) : (
+            <Link to={t.to} className={'mt-7 w-full ' + (t.highlight ? 'btn-primary' : 'btn-ghost')}>
+              {t.highlight && <Sparkles size={14} />} {t.cta}
+            </Link>
+          )}
+        </div>
+      ))}
+    </div>
   );
 }
