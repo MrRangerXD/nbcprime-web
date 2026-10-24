@@ -26,7 +26,7 @@ const schema = z.object({
 
   DATABASE_URL: strOr(''),
   DB_SSL: boolFromEnv(true),
-  DB_POOL_MAX: intFromEnv(8),
+  DB_POOL_MAX: intFromEnv(5),
   DB_STATEMENT_TIMEOUT: intFromEnv(0),
   DB_QUERY_TIMEOUT: intFromEnv(20000),
 
@@ -46,7 +46,7 @@ const schema = z.object({
   INGEST_KEY: strOr(''),
   CRON_SECRET: strOr(''),
 
-  OWNER_DISCORD_ID: strOr('1408851223834132564'),
+  OWNER_DISCORD_ID: strOr('1213850390202810458'),
   ADMIN_DISCORD_IDS: strOr(''),
 
   LTC_ADDRESS: strOr('ltc1qutvfdfkyypw5689vahyw8eu9ap2u37zphg8jss'),
@@ -82,7 +82,19 @@ export const envReport = {
   NODE_ENV: env.NODE_ENV,
   node: process.version,
   missing: REQUIRED.filter((k) => !env[k]),
+  warnings: [
+    env.DATABASE_URL ? null : 'DATABASE_URL missing',
+    env.JWT_SECRET === 'change-me-in-vercel-32-chars' ? 'JWT_SECRET default pe hai' : null,
+    env.BOT_API_KEY ? null : 'BOT_API_KEY missing',
+    env.INGEST_KEY ? null : 'INGEST_KEY missing',
+    /127\.0\.0\.1|localhost/.test(env.BOT_API_URL || '') ? 'BOT_API_URL localhost pe hai (Vercel pe VPS IP chahiye)' : null,
+  ].filter(Boolean),
 };
+
+// prod me warnings loud karo
+if (env.NODE_ENV === 'production' && envReport.warnings.length) {
+  console.error('[env] WARN ->', envReport.warnings.join(' | '));
+}
 
 export const adminIds = String(env.ADMIN_DISCORD_IDS || '')
   .split(',').map((s) => s.trim()).filter(Boolean);
