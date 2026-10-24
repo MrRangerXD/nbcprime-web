@@ -4,7 +4,7 @@ import { env } from './config/env.js';
 const { Pool } = pg;
 
 const poolConfig = {
-  max: env.DB_POOL_MAX || 5,
+  max: env.DB_POOL_MAX || 5,            // serverless: 8 bahut hai, connections exhaust hote hain
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 15000,
   query_timeout: env.DB_QUERY_TIMEOUT || 20000,
@@ -18,6 +18,7 @@ if (env.DB_STATEMENT_TIMEOUT > 0) poolConfig.statement_timeout = env.DB_STATEMEN
 
 export const pool = new Pool(poolConfig);
 
+// FIX: idle client marne par pool 'error' emit karta hai -> listener na ho to process crash
 pool.on('error', (err) => console.error('[pg] idle client error:', err.message));
 
 export async function connectDB() {
