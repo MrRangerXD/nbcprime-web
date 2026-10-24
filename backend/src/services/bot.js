@@ -3,6 +3,11 @@ import { env } from '../config/env.js';
 const BASE = (env.BOT_API_URL || '').replace(/\/+$/, '');
 const TIMEOUT_MS = 20000;
 
+// Vercel pe 127.0.0.1 = lambda khud, bot VPS nahi
+if (/127\.0\.0\.1|localhost/.test(BASE)) {
+  console.warn('[bot] BOT_API_URL localhost pe hai — Vercel pe VPS IP:PORT set karo');
+}
+
 export const BotDown = (e) =>
   e?.name === 'AbortError' ||
   [
