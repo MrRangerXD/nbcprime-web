@@ -3,18 +3,20 @@ import { env } from './config/env.js';
 
 const { Pool } = pg;
 
-export const pool = new Pool({
-  connectionString: env.DATABASE_URL,
-  ssl: env.DB_SSL ? { rejectUnauthorized: false } : false,
-  max: env.DB_POOL_MAX,
+const poolConfig = {
+  max: env.DB_POOL_MAX || 8,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 15000,
-  query_timeout: env.DB_QUERY_TIMEOUT,
-  ...(env.DB_STATEMENT_TIMEOUT > 0 ? { statement_timeout: env.DB_STATEMENT_TIMEOUT } : {}),
+  query_timeout: env.DB_QUERY_TIMEOUT || 20000,
   allowExitOnIdle: true,
-});
+};
 
-pool.on('error', (e) => console.error('[pg] idle client error:', e.message));
+// FIX: connectionString undefined hone pe bhi crash na ho
+if (env.DATABASE_URL) poolConfig.connectionString = env.DATABASE_URL;
+if (env.DB_SSL) poolConfig.ssl = { rejectUnauthorized: false };
+if (env.DB_STATEMENT_TIMEOUT > 0) poolConfig.statement_timeout = env.DB_STATEMENT_TIMEOUT;
+
+export const pool = new Pool(poolConfig);
 
 export async function connectDB() {
   const client = await pool.connect();
