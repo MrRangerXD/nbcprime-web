@@ -14,10 +14,10 @@ export function encrypt(text) {
 export function decrypt(payload) {
   if (!payload) return null;
   try {
-    const parts = payload.split('.');
-    const decipher = crypto.createDecipheriv('aes-256-gcm', KEY, Buffer.from(parts[0], 'base64'));
-    decipher.setAuthTag(Buffer.from(parts[1], 'base64'));
-    return Buffer.concat([decipher.update(Buffer.from(parts[2], 'base64')), decipher.final()]).toString('utf8');
+    const [iv, tag, data] = payload.split('.');
+    const decipher = crypto.createDecipheriv('aes-256-gcm', KEY, Buffer.from(iv, 'base64'));
+    decipher.setAuthTag(Buffer.from(tag, 'base64'));
+    return Buffer.concat([decipher.update(Buffer.from(data, 'base64')), decipher.final()]).toString('utf8');
   } catch {
     return null;
   }
