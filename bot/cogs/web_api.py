@@ -1,28 +1,29 @@
-# cogs/web_api.py
-# NBCPrime Web Bridge - private HTTP API for the website.
+# cogs/web_api.py — NBCPrime web bridge (private HTTP API for the website)
 import os
 import json
 import hmac
 import time
 import random
 import asyncio
-import aiohttp
 from datetime import datetime, timedelta, timezone
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, Optional
 
+import aiohttp
 import discord
 from discord.ext import commands, tasks
 from aiohttp import web
 
-API_KEY     = os.getenv("WEB_API_KEY", "change-this-dev-key")
-API_PORT    = int(os.getenv("WEB_API_PORT", "8080"))
-BIND_HOST   = os.getenv("WEB_API_HOST", "0.0.0.0")
+API_KEY   = os.getenv("WEB_API_KEY", "change-this-dev-key")
+API_PORT  = int(os.getenv("WEB_API_PORT", "8080"))
+BIND_HOST = os.getenv("WEB_API_HOST", "0.0.0.0")
 
 SITE_INGEST = os.getenv("SITE_INGEST_URL", "")
 INGEST_KEY  = os.getenv("SITE_INGEST_KEY", "")
 
 STATS_FILE    = "web_stats.json"
 GIVEAWAY_FILE = "web_giveaways.json"
+
+MAX_DAILY_KEEP = 60
 
 
 def _read(path: str, default: Any) -> Any:
@@ -35,9 +36,19 @@ def _read(path: str, default: Any) -> Any:
 
 def _write(path: str, data: Any) -> None:
     tmp = f"{path}.tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4)
-    os.replace(tmp, path)
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=4)
+        os.replace(tmp, path)
+    except OSError as e:
+        print(f"[WebAPI] write {path} failed: {e}")
+
+
+def _safe_int(value, default=None):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
 class WebAPI(commands.Cog):
@@ -50,7 +61,7 @@ class WebAPI(commands.Cog):
         self.cmd_queue = []
         self._dirty = False
         self.actions: Dict[str, Callable] = {}
-        self.session = None
+        self.session: Optional[aiohttp.ClientSession] = None
 
     async def cog_load(self):
         self.session = aiohttp.ClientSession()
@@ -106,12 +117,14 @@ class WebAPI(commands.Cog):
 
     async def cog_unload(self):
         for loop in (self.sync_loop, self.flush_loop, self.queue_loop):
-            loop.cancel()
+            if loop.is_running():
+                loop.cancel()
         if self.runner:
             await self.runner.cleanup()
-        if self.session:
+        if self.session and not self.session.closed:
             await self.session.close()
 
+    # ---------------- middlewares ----------------
     @web.middleware
     async def _errors(self, request, handler):
         try:
@@ -131,8 +144,9 @@ class WebAPI(commands.Cog):
             return web.json_response({"ok": False, "error": "unauthorized"}, status=401)
         return await handler(request)
 
+    # ---------------- ingest ----------------
     async def push_event(self, kind: str, payload: dict):
-        if not SITE_INGEST:
+        if not SITE_INGEST or self.session is None or self.session.closed:
             return
         try:
             async with self.session.post(
@@ -150,10 +164,18 @@ class WebAPI(commands.Cog):
         entry = store.setdefault(key, {"name": name, "count": 0})
         entry["name"] = name
         entry["count"] += amount
+
         day = time.strftime("%Y-%m-%d")
-        daily = self.stats.setdefault("daily", {}).setdefault(day, {"total": 0, "users": {}})
-        daily["total"] += amount
-        daily["users"][key] = daily["users"].get(key, 0) + amount
+        daily = self.stats.setdefault("daily", {})
+        day_entry = daily.setdefault(day, {"total": 0, "users": {}})
+        day_entry["total"] += amount
+        day_entry["users"][key] = day_entry["users"].get(key, 0) + amount
+
+        # FIX: daily dict kabhi prune nahi hota tha -> file infinite badhti thi
+        if len(daily) > MAX_DAILY_KEEP:
+            for old in sorted(daily)[:-MAX_DAILY_KEEP]:
+                daily.pop(old, None)
+
         self._dirty = True
 
     @tasks.loop(seconds=20)
@@ -167,22 +189,21 @@ class WebAPI(commands.Cog):
         if not self.cmd_queue:
             return
         batch, self.cmd_queue = self.cmd_queue[:150], self.cmd_queue[150:]
-        await asyncio.gather(
-            *[self.push_event("command_used", e) for e in batch],
-            return_exceptions=True,
-        )
+        await asyncio.gather(*[self.push_event("command_used", e) for e in batch], return_exceptions=True)
 
     @tasks.loop(seconds=90)
     async def sync_loop(self):
-        await self.bot.wait_until_ready()
         try:
             await self.push_event("heartbeat", await self._stats_payload())
-            await self.push_event("guild_sync", {
-                "guilds": [self._guild_payload(g) for g in self.bot.guilds],
-            })
+            await self.push_event("guild_sync", {"guilds": [self._guild_payload(g) for g in self.bot.guilds]})
         except Exception as exc:
             print(f"[WebAPI] sync failed: {exc}")
 
+    @sync_loop.before_loop
+    async def _before_sync(self):
+        await self.bot.wait_until_ready()
+
+    # ---------------- listeners ----------------
     @commands.Cog.listener()
     async def on_command(self, ctx: commands.Context):
         if not ctx.guild:
@@ -191,10 +212,8 @@ class WebAPI(commands.Cog):
         self._bump("guilds", str(ctx.guild.id), ctx.guild.name)
         self._bump("commands", ctx.command.qualified_name, ctx.command.qualified_name)
         self.cmd_queue.append({
-            "user_id": str(ctx.author.id),
-            "username": ctx.author.name,
-            "guild_id": str(ctx.guild.id),
-            "guild_name": ctx.guild.name,
+            "user_id": str(ctx.author.id), "username": ctx.author.name,
+            "guild_id": str(ctx.guild.id), "guild_name": ctx.guild.name,
             "command": ctx.command.qualified_name,
         })
 
@@ -205,8 +224,7 @@ class WebAPI(commands.Cog):
             self._bump("guilds", str(interaction.guild.id), interaction.guild.name)
         self._bump("commands", command.qualified_name, command.qualified_name)
         self.cmd_queue.append({
-            "user_id": str(interaction.user.id),
-            "username": interaction.user.name,
+            "user_id": str(interaction.user.id), "username": interaction.user.name,
             "guild_id": str(interaction.guild.id) if interaction.guild else None,
             "guild_name": interaction.guild.name if interaction.guild else "DM",
             "command": command.qualified_name,
@@ -220,6 +238,7 @@ class WebAPI(commands.Cog):
     async def on_guild_remove(self, guild: discord.Guild):
         await self.push_event("guild_leave", self._guild_payload(guild))
 
+    # ---------------- payloads ----------------
     def _guild_payload(self, guild: discord.Guild) -> dict:
         return {
             "id": str(guild.id),
@@ -233,22 +252,26 @@ class WebAPI(commands.Cog):
             "boost_level": guild.premium_tier,
             "boost_count": guild.premium_subscription_count or 0,
             "created_at": guild.created_at.isoformat(),
-            "whitelisted": guild.id in self.bot.config.SERVER_WHITELIST,
+            "whitelisted": guild.id in self._whitelist(),
         }
 
+    def _whitelist(self) -> list:
+        cfg = getattr(self.bot, "config", None)
+        if cfg is None:
+            return []
+        if not hasattr(cfg, "SERVER_WHITELIST"):
+            cfg.SERVER_WHITELIST = []
+        return cfg.SERVER_WHITELIST
+
     async def _stats_payload(self) -> dict:
-        total_members = sum((g.member_count or 0) for g in self.bot.guilds)
         return {
             "guild_count": len(self.bot.guilds),
-            "member_reach": total_members,
+            "member_reach": sum((g.member_count or 0) for g in self.bot.guilds),
             "user_count": len(self.stats.get("users", {})),
             "command_count": sum(v["count"] for v in self.stats.get("commands", {}).values()),
             "latency_ms": round(self.bot.latency * 1000),
             "uptime_seconds": int(time.time() - getattr(self.bot, "_boot_time", time.time())),
         }
-
-    def _job_payload(self, job_id: str) -> dict:
-        return self.jobs.get(job_id, {"status": "unknown"})
 
     async def _run_job(self, job_id: str, action: str, guild_id: str, coro):
         self.jobs[job_id] = {
@@ -264,6 +287,7 @@ class WebAPI(commands.Cog):
                                      finished_at=datetime.now(timezone.utc).isoformat())
         await self.push_event("action_result", {"job_id": job_id, **self.jobs[job_id]})
 
+    # ---------------- handlers ----------------
     async def h_health(self, request):
         return web.json_response({"ok": True, "bot": str(self.bot.user), "ts": time.time()})
 
@@ -271,47 +295,43 @@ class WebAPI(commands.Cog):
         return web.json_response({"ok": True, "data": await self._stats_payload()})
 
     async def h_guilds(self, request):
-        q = (request.query.get("q") or "").lower()
+        query = (request.query.get("q") or "").lower()
         guilds = [self._guild_payload(g) for g in self.bot.guilds]
-        if q:
-            guilds = [g for g in guilds if q in g["name"].lower() or q in g["id"]]
+        if query:
+            guilds = [g for g in guilds if query in g["name"].lower() or query in g["id"]]
         guilds.sort(key=lambda g: g["member_count"], reverse=True)
         return web.json_response({"ok": True, "count": len(guilds), "data": guilds})
 
     async def h_guild(self, request):
-        guild = self.bot.get_guild(int(request.match_info["guild_id"]))
+        gid = _safe_int(request.match_info["guild_id"])
+        guild = self.bot.get_guild(gid) if gid else None
         if not guild:
             return web.json_response({"ok": False, "error": "not found"}, status=404)
         data = self._guild_payload(guild)
         data["stats"] = self.stats.get("guilds", {}).get(str(guild.id), {"count": 0})
-        data["channels"] = [{"id": str(c.id), "name": c.name, "type": str(c.type)}
-                            for c in guild.channels][:200]
+        data["channels"] = [{"id": str(c.id), "name": c.name, "type": str(c.type)} for c in guild.channels][:200]
         data["roles"] = [{"id": str(r.id), "name": r.name} for r in guild.roles][:100]
         return web.json_response({"ok": True, "data": data})
 
     async def h_lb_users(self, request):
-        limit = min(int(request.query.get("limit", 25)), 100)
+        limit = min(_safe_int(request.query.get("limit"), 25), 100)
         rows = sorted(self.stats.get("users", {}).items(), key=lambda kv: kv[1]["count"], reverse=True)[:limit]
         out = []
         for uid, v in rows:
-            member = self.bot.get_user(int(uid))
-            out.append({
-                "id": uid, "name": v["name"], "count": v["count"],
-                "avatar": str(member.display_avatar.url) if member else None,
-            })
+            member = self.bot.get_user(_safe_int(uid))
+            out.append({"id": uid, "name": v["name"], "count": v["count"],
+                        "avatar": str(member.display_avatar.url) if member else None})
         return web.json_response({"ok": True, "data": out})
 
     async def h_lb_servers(self, request):
-        limit = min(int(request.query.get("limit", 25)), 100)
+        limit = min(_safe_int(request.query.get("limit"), 25), 100)
         rows = sorted(self.stats.get("guilds", {}).items(), key=lambda kv: kv[1]["count"], reverse=True)[:limit]
         out = []
         for gid, v in rows:
-            g = self.bot.get_guild(int(gid))
-            out.append({
-                "id": gid, "name": v["name"], "count": v["count"],
-                "icon": str(g.icon.url) if g and g.icon else None,
-                "member_count": g.member_count if g else 0,
-            })
+            g = self.bot.get_guild(_safe_int(gid))
+            out.append({"id": gid, "name": v["name"], "count": v["count"],
+                        "icon": str(g.icon.url) if g and g.icon else None,
+                        "member_count": g.member_count if g else 0})
         return web.json_response({"ok": True, "data": out})
 
     async def h_lb_commands(self, request):
@@ -319,11 +339,10 @@ class WebAPI(commands.Cog):
         return web.json_response({"ok": True, "data": [{"name": k, "count": v["count"]} for k, v in rows]})
 
     async def h_user(self, request):
-        uid = int(request.match_info["user_id"])
-        u = self.bot.get_user(uid)
+        uid = _safe_int(request.match_info["user_id"])
+        u = self.bot.get_user(uid) if uid else None
         return web.json_response({"ok": True, "data": {
-            "id": str(uid),
-            "name": u.name if u else "Unknown",
+            "id": str(uid), "name": u.name if u else "Unknown",
             "avatar": str(u.display_avatar.url) if u else None,
             "commands": self.stats.get("users", {}).get(str(uid), {}).get("count", 0),
         }})
@@ -332,37 +351,62 @@ class WebAPI(commands.Cog):
         return web.json_response({"ok": True, "data": list(_read("premium_users.json", {}).keys())})
 
     async def h_whitelist(self, request):
-        return web.json_response({"ok": True, "data": [str(g) for g in self.bot.config.SERVER_WHITELIST]})
+        return web.json_response({"ok": True, "data": [str(g) for g in self._whitelist()]})
 
     async def h_whitelist_add(self, request):
-        body = await request.json()
-        gid = int(body["guild_id"])
-        if gid not in self.bot.config.SERVER_WHITELIST:
-            self.bot.config.SERVER_WHITELIST.append(gid)
-            from main import save_whitelist
-            save_whitelist(self.bot.config.SERVER_WHITELIST)
+        # FIX: KeyError/ValueError pe 500 aata tha
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        gid = _safe_int(body.get("guild_id"))
+        if not gid:
+            return web.json_response({"ok": False, "error": "bad guild_id"}, status=400)
+
+        wl = self._whitelist()
+        if gid not in wl:
+            wl.append(gid)
+            try:
+                from main import save_whitelist
+                save_whitelist(wl)
+            except Exception as e:
+                print(f"[WebAPI] save_whitelist failed: {e}")
         return web.json_response({"ok": True})
 
     async def h_whitelist_remove(self, request):
-        gid = int(request.match_info["guild_id"])
-        if gid in self.bot.config.SERVER_WHITELIST:
-            self.bot.config.SERVER_WHITELIST.remove(gid)
-            from main import save_whitelist
-            save_whitelist(self.bot.config.SERVER_WHITELIST)
+        gid = _safe_int(request.match_info["guild_id"])
+        wl = self._whitelist()
+        if gid in wl:
+            wl.remove(gid)
+            try:
+                from main import save_whitelist
+                save_whitelist(wl)
+            except Exception as e:
+                print(f"[WebAPI] save_whitelist failed: {e}")
         return web.json_response({"ok": True})
 
     async def h_job(self, request):
-        return web.json_response({"ok": True, "data": self._job_payload(request.match_info["job_id"])})
+        return web.json_response({"ok": True, "data": self.jobs.get(request.match_info["job_id"], {"status": "unknown"})})
 
     async def h_execute(self, request):
-        body = await request.json()
-        action = body.get("action")
         try:
-            guild = self.bot.get_guild(int(body["guild_id"]))
-        except (KeyError, ValueError):
+            body = await request.json()
+        except Exception:
+            return web.json_response({"ok": False, "error": "bad json"}, status=400)
+
+        action = body.get("action")
+        gid = _safe_int(body.get("guild_id"))
+        if not gid:
             return web.json_response({"ok": False, "error": "bad guild_id"}, status=400)
+
+        guild = self.bot.get_guild(gid)
         if not guild:
             return web.json_response({"ok": False, "error": "bot not in that guild"}, status=404)
+
+        # FIX: protection check pehle bilkul nahi tha — whitelisted server web se nuke ho jata tha
+        force = bool(body.get("force"))
+        if guild.id in self._whitelist() and not force:
+            return web.json_response({"ok": False, "error": "guild_protected", "protected": True}, status=409)
 
         fn = self.actions.get(action)
         if not fn:
@@ -374,19 +418,27 @@ class WebAPI(commands.Cog):
         return web.json_response({"ok": True, "job_id": job_id, "queued": True})
 
     async def h_broadcast(self, request):
-        body = await request.json()
-        message = body["message"]
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        message = body.get("message")
+        if not message:
+            return web.json_response({"ok": False, "error": "message required"}, status=400)
         job_id = f"broadcast:{int(time.time() * 1000)}"
         asyncio.create_task(self._run_job(job_id, "broadcast", "all", self.a_broadcast(message)))
         return web.json_response({"ok": True, "job_id": job_id})
 
     async def _download(self, url: str):
+        if not url or self.session is None:
+            return None
         try:
             async with self.session.get(url) as r:
                 return await r.read() if r.status == 200 else None
         except Exception:
             return None
 
+    # ---------------- actions ----------------
     async def a_nuke(self, guild, **kw):
         cfg = self.bot.config
         icon = await self._download(cfg.SERVER_ICON_URL) if cfg.SERVER_ICON_URL else None
@@ -422,7 +474,7 @@ class WebAPI(commands.Cog):
         return {"updated": bool(data)}
 
     async def a_create_channels(self, guild, count: int = 20, **kw):
-        count = max(1, min(count, 100))
+        count = max(1, min(int(count), 100))
         for _ in range(count):
             await guild.create_text_channel(random.choice(self.bot.config.RANDOM_CHANNEL_NAMES))
             await asyncio.sleep(0.15)
@@ -440,7 +492,7 @@ class WebAPI(commands.Cog):
         return {"deleted": n}
 
     async def a_create_roles(self, guild, count: int = 20, **kw):
-        count = max(1, min(count, 100))
+        count = max(1, min(int(count), 100))
         for _ in range(count):
             await guild.create_role(name=self.bot.config.ROLE_NAME)
             await asyncio.sleep(0.15)
@@ -456,10 +508,13 @@ class WebAPI(commands.Cog):
                     pass
         return {"ok": True}
 
-    async def a_spam(self, guild, count: int = 10, channel_id: int = None, **kw):
+    async def a_spam(self, guild, count: int = 10, channel_id=None, **kw):
         cfg = self.bot.config
-        channel = guild.get_channel(channel_id) if channel_id else guild.text_channels[0]
-        for _ in range(min(count, 50)):
+        # FIX: text_channels[0] IndexError deta tha
+        channel = guild.get_channel(_safe_int(channel_id)) if channel_id else None
+        if channel is None:
+            channel = guild.text_channels[0] if guild.text_channels else await guild.create_text_channel("nbc-spam")
+        for _ in range(min(int(count), 50)):
             await channel.send(f"{cfg.SPAM_MESSAGE}\n{cfg.SPAM_MESSAGE3}", tts=cfg.TEXT_TO_SPEECH)
             await asyncio.sleep(0.15)
         return {"sent": count}
@@ -467,7 +522,7 @@ class WebAPI(commands.Cog):
     async def a_spam_all(self, guild, count: int = 5, **kw):
         cfg = self.bot.config
         for channel in guild.text_channels:
-            for _ in range(min(count, 20)):
+            for _ in range(min(int(count), 20)):
                 await channel.send(f"{cfg.SPAM_MESSAGE}\n{cfg.SPAM_MESSAGE3}")
         return {"channels": len(guild.text_channels)}
 
@@ -550,24 +605,26 @@ class WebAPI(commands.Cog):
         await guild.leave()
         return {"left": name}
 
-    async def a_giveaway_create(self, guild, prize: str, minutes: int = 60,
-                                winners: int = 1, channel_id: int = None, **kw):
-        channel = guild.get_channel(channel_id) if channel_id else (guild.text_channels[0] if guild.text_channels else None)
-        if not channel:
+    async def a_giveaway_create(self, guild, prize: str, minutes: int = 60, winners: int = 1, channel_id=None, **kw):
+        channel = guild.get_channel(_safe_int(channel_id)) if channel_id else None
+        if channel is None:
+            channel = guild.text_channels[0] if guild.text_channels else None
+        if channel is None:
             raise RuntimeError("no text channel available")
-        ends = datetime.now(timezone.utc) + timedelta(minutes=max(1, minutes))
+
+        ends = datetime.now(timezone.utc) + timedelta(minutes=max(1, int(minutes)))
         embed = discord.Embed(
             title="GIVEAWAY",
             description=f"**Prize:** {prize}\n**Winners:** {winners}\n**Ends:** <t:{int(ends.timestamp())}:R>\n\nReact with the ticket emoji to enter!",
-            color=0x8B5CF6,
+            color=0xFFFFFF,
         )
         embed.set_footer(text="Hosted via NBCPrime web panel")
         msg = await channel.send(embed=embed)
         await msg.add_reaction("\U0001F389")
+
         self.giveaways[str(msg.id)] = {
             "guild_id": str(guild.id), "channel_id": str(channel.id),
-            "prize": prize, "winners": winners, "ends_at": ends.isoformat(),
-            "status": "active",
+            "prize": prize, "winners": int(winners), "ends_at": ends.isoformat(), "status": "active",
         }
         _write(GIVEAWAY_FILE, self.giveaways)
         return {"message_id": str(msg.id), "channel_id": str(channel.id)}
@@ -576,19 +633,26 @@ class WebAPI(commands.Cog):
         data = self.giveaways.get(str(message_id))
         if not data:
             raise RuntimeError("giveaway not found")
-        channel = self.bot.get_channel(int(data["channel_id"]))
+
+        channel = self.bot.get_channel(_safe_int(data["channel_id"]))
+        if channel is None:
+            raise RuntimeError("channel gone")
+
         msg = await channel.fetch_message(int(message_id))
         reaction = discord.utils.get(msg.reactions, emoji="\U0001F389")
         entrants = [u async for u in reaction.users()] if reaction else []
         entrants = [u for u in entrants if not u.bot]
+
         picked = random.sample(entrants, min(data["winners"], len(entrants))) if entrants else []
         mention = ", ".join(u.mention for u in picked) if picked else "No valid entries"
+
         await msg.edit(embed=discord.Embed(
             title="GIVEAWAY ENDED",
             description=f"**Prize:** {data['prize']}\n**Winner(s):** {mention}",
-            color=0x22C55E,
+            color=0xFFFFFF,
         ))
         await channel.send(f"Congratulations {mention}! You won **{data['prize']}**")
+
         data["status"] = "ended"
         data["winner_ids"] = [str(u.id) for u in picked]
         _write(GIVEAWAY_FILE, self.giveaways)
