@@ -9,14 +9,8 @@ export const pool = new Pool({
   max: env.DB_POOL_MAX,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 15000,
-
-  // FIX: query_timeout client-side hai — connection ko kabhi nahi todta
   query_timeout: env.DB_QUERY_TIMEOUT,
-
-  // FIX: statement_timeout sirf tab jab explicitly on karo (Supavisor startup
-  // parameter reject kare to 0 kar dena)
   ...(env.DB_STATEMENT_TIMEOUT > 0 ? { statement_timeout: env.DB_STATEMENT_TIMEOUT } : {}),
-
   allowExitOnIdle: true,
 });
 
@@ -45,9 +39,7 @@ export function mapRow(row) {
   return out;
 }
 
-export async function q(text, params = []) {
-  return pool.query(text, params);
-}
+export async function q(text, params = []) { return pool.query(text, params); }
 
 export async function many(text, params = []) {
   const res = await pool.query(text, params);
