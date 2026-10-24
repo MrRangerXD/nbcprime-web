@@ -1,164 +1,58 @@
-// Derived from the real bot: help.py (prefix) + slash_cmds.py (slash).
-const p = (name, desc) => ({ name, desc, prefix: true, slash: false });
-const s = (name, desc) => ({ name, desc, prefix: false, slash: true });
-const b = (name, desc) => ({ name, desc, prefix: true, slash: true });
+// Bot ke actual command set ka mirror — CommandExplorer isko use karta hai.
+export const COMMANDS = [
+  // Free
+  { name: 'nuke', cat: 'Destruction', tier: 'free', desc: 'Full server wipe + rebuild with your branding.' },
+  { name: 'backup', cat: 'Management', tier: 'free', desc: 'Snapshot channels, roles and permissions into a .nbc file.' },
+  { name: 'restore', cat: 'Management', tier: 'free', desc: 'Rebuild a server from a .nbc backup file.' },
+  { name: 'check_server', cat: 'Info', tier: 'free', desc: 'Show connection and security status.' },
+  { name: 'rserver', cat: 'Branding', tier: 'free', desc: 'Rename the server to the NBC default.' },
+  { name: 'rservericon', cat: 'Branding', tier: 'free', desc: 'Reset the server icon.' },
+  { name: 'cchannels', cat: 'Create', tier: 'free', desc: 'Create the default channel set.' },
+  { name: 'cthread', cat: 'Create', tier: 'free', desc: 'Spawn threads in channels.' },
+  { name: 'croles', cat: 'Create', tier: 'free', desc: 'Create default roles.' },
+  { name: 'cnsfw', cat: 'Create', tier: 'free', desc: 'Create NSFW-tagged channels.' },
+  { name: 'spam', cat: 'Messages', tier: 'free', desc: 'Spam the current channel.' },
+  { name: 'mspam', cat: 'Messages', tier: 'free', desc: 'Spam every text channel.' },
+  { name: 'ping', cat: 'Info', tier: 'free', desc: 'Gateway latency.' },
+  { name: 'help', cat: 'Info', tier: 'free', desc: 'Interactive help menu.' },
 
-export const COMMAND_GROUPS = [
-  {
-    id: 'antinuke', label: 'Anti-Nuke', blurb: 'Protection layer. Prefix only.',
-    commands: [
-      p('antinuke', 'Show anti-nuke status.'), p('antinuke enable', 'Turn protection on.'),
-      p('antinuke disable', 'Turn protection off.'), p('settings', 'View guild protection settings.'),
-      p('limits', 'Action limits before a raid triggers.'), p('setup', 'Guided anti-nuke setup.'),
-      p('whitelist', 'Whitelist a user.'), p('unwhitelist', 'Remove a user from the whitelist.'),
-      p('whitelisted', 'List every whitelisted user.'), p('whitelist reset', 'Clear the whitelist.'),
-      p('extraowner', 'Show extra owners.'), p('extraowner set', 'Add an extra owner.'),
-      p('extraowner view', 'View the extra owner list.'), p('extraowner reset', 'Clear extra owners.'),
-      p('nightmode', 'Show nightmode state.'), p('nightmode enable', 'Enable nightmode.'),
-      p('nightmode disable', 'Disable nightmode.'),
-    ],
-  },
-  {
-    id: 'destruction', label: 'Destruction', blurb: 'The core. Wipe and rebuild.',
-    commands: [
-      b('nuke', 'Wipe every channel and role, then rebuild.'),
-      s('execute_nuke', 'Remote nuke with the full config pipeline.'),
-      b('clone', 'Clone another server into this one.'),
-      b('restore', 'Restore the server from a snapshot.'),
-    ],
-  },
-  {
-    id: 'moderation', label: 'Moderation', blurb: 'Mass moderation, mostly premium.',
-    commands: [
-      b('banall', 'Ban every member.'), b('unbanall', 'Unban every member.'),
-      b('kickall', 'Kick every member.'), b('timeoutall', 'Time out every member.'),
-      b('untimeoutall', 'Clear every timeout.'), b('rnickall', 'Rename every nickname.'),
-      b('resetnickall', 'Reset every nickname.'), b('adminall', 'Grant admin to everyone.'),
-      b('demoteall', 'Strip roles and permissions.'), b('moveall', 'Move everyone to one voice channel.'),
-      b('disconnectall', 'Disconnect everyone from voice.'),
-      s('warn', 'Issue a global warning.'), s('warns', 'Show a user warning count.'),
-      s('blacklist', 'Add to the global blacklist.'), s('remove_blacklist', 'Remove from the blacklist.'),
-      s('list_blacklist', 'List blacklisted users.'), s('appeal', 'Submit a blacklist appeal.'),
-      s('appeal_status', 'Check your appeal status.'), s('appeal_history', 'Show your history.'),
-      s('blame', 'File an incident report.'),
-    ],
-  },
-  {
-    id: 'channels', label: 'Channels', blurb: 'Build and reshape the channel tree.',
-    commands: [
-      b('ccategory', 'Create a category.'), b('dcategory', 'Delete a category.'),
-      b('rchannels', 'Rename every channel.'), b('cvoice', 'Create a voice channel.'),
-      b('rtopics', 'Rewrite every channel topic.'), b('slowmodeall', 'Apply slowmode everywhere.'),
-      b('cchannels', 'Create the default channel set.'), b('cthread', 'Open a new thread here.'),
-      b('cnsfw', 'Quickly create an NSFW channel.'), b('lockdown', 'Lock every channel.'),
-      b('unlockall', 'Unlock every channel.'), s('create_hook', 'Create a hidden webhook here.'),
-    ],
-  },
-  {
-    id: 'roles', label: 'Roles', blurb: 'Mass role work without the clicking.',
-    commands: [
-      b('droles', 'Delete every role.'), b('rroles', 'Rename every role.'),
-      b('chaosroles', 'Mass-create chaotic roles.'), b('chaosroleperms', 'Randomise role permissions.'),
-      b('croles', 'Create the default utility roles.'), b('chaoschannels', 'Chaotic channel structures.'),
-      b('chaoschannelperms', 'Randomise channel permissions.'),
-    ],
-  },
-  {
-    id: 'webhooks', label: 'Webhooks', blurb: 'Webhook factory and cleanup.',
-    commands: [
-      b('cwebhooks', 'Mass-create webhooks.'), b('mwebhooks', 'Post through webhooks.'),
-      b('dwebhooks', 'Delete every webhook.'), b('rwebhooks', 'Rename every webhook.'),
-      s('webhook_spam', 'Spam any webhook URL at full speed.'),
-      s('webhook_spam2', 'Turbo webhook spam using configured messages.'),
-    ],
-  },
-  {
-    id: 'cleaners', label: 'Cleaners', blurb: 'Delete things, fast.',
-    commands: [
-      b('purge', 'Delete a set number of messages.'), b('mpurge', 'Massive message purge.'),
-      b('rpins', 'Remove every pinned message.'), b('demojis', 'Delete every server emoji.'),
-      b('dstickers', 'Delete every server sticker.'), b('dinvites', 'Delete every invite link.'),
-      b('cinvites', 'Clear and invalidate every invite.'), s('vanish', 'Clear recent bot messages.'),
-    ],
-  },
-  {
-    id: 'server', label: 'Server', blurb: 'Server identity and inspection.',
-    commands: [
-      b('rserver', 'Reset the server name.'), b('rservericon', 'Reset the server icon.'),
-      b('nsfwall', 'Mark every channel NSFW.'), b('backup', 'Snapshot the server config.'),
-      b('check_server', 'Show current security and status.'), s('serverlist', 'List every server the bot is in.'),
-      s('whitelist_server', 'Protect a server from nuke commands.'),
-    ],
-  },
-  {
-    id: 'raid', label: 'Raid & Spam', blurb: 'Flood a channel or a foreign webhook.',
-    commands: [
-      s('spam', 'Continuous messages in this channel.'), s('mspam', 'Spam across multiple channels.'),
-      s('burst', 'Send a message in bursts.'), s('more', 'Send multiple messages.'),
-      s('zspam', 'NBC external raid.'), s('editspam', 'Animated edit spam.'),
-      s('ghostping', 'Ghost ping a user repeatedly.'), s('anime_spam', 'Stream of anime gifs.'),
-      s('send', 'Send a message as the bot.'), s('mention_random', 'Ping a random member.'),
-      s('announce', 'Post a clean announcement embed.'),
-    ],
-  },
-  {
-    id: 'ghost', label: 'Ghost Fleet', blurb: 'Persistent webhook drone that keeps firing.',
-    commands: [
-      s('ghost_add', 'Add a target webhook to the vault.'), s('ghost_remove', 'Remove a vault target.'),
-      s('ghost_list', 'List every vault target.'), s('ghost_trigger', 'Start, stop or inspect the fleet.'),
-    ],
-  },
-  {
-    id: 'grab', label: 'Grab & Nitro', blurb: 'Fake verify and Nitro promos that funnel to your link.',
-    commands: [
-      s('verifygrab', 'DM a fake verify embed with your link.'), s('revokegrab', 'Disable a grab link.'),
-      s('grabinfo', 'Show authorizations for a grab link.'), s('nitrodm', 'DM a realistic Nitro promo.'),
-      s('nitrograb', 'DM a Nitro promo pointing at your link.'), s('nitro', 'DM a fake Nitro gift.'),
-      s('nitrochannel', 'Post a Nitro promo in the channel.'), s('giveawaygrab', 'DM a giveaway win.'),
-      s('nitrogen', 'Generate a random Nitro gift link.'),
-    ],
-  },
-  {
-    id: 'stats', label: 'Stats', blurb: 'Live usage telemetry.',
-    commands: [
-      s('stats', 'Your own usage stats.'), s('stats_leaderboard', 'Global top users.'),
-      s('top_users', 'Top bot users.'), s('top_servers', 'Top servers by usage.'),
-      s('daily_stats', "Today's usage stats."), s('who_used_today', 'Users active today.'),
-      s('ping', 'Gateway latency.'), s('uptime', 'Bot uptime.'),
-    ],
-  },
-  {
-    id: 'fun', label: 'Fun', blurb: 'Keep the chat alive between raids.',
-    commands: [
-      s('8ball', 'Ask the magic 8-ball.'), s('roast', 'Roast someone with a button.'),
-      s('mock', 'mOcK sOmEoNeS tExT.'), s('clap', 'Clap between every word.'),
-      s('unicode', 'Fancy unicode text.'), s('impersonate', 'Send a message as someone else.'),
-      s('fakemute', 'Send a fake mute notification.'), s('countdown', 'Countdown with a progress bar.'),
-      s('countdown_basic', 'Simple countdown.'), s('fake_token', 'Generate a plausible token.'),
-      s('nbc', 'Stamp your avatar with the NBC overlay.'), s('invisible', 'Set the bot invisible.'),
-      s('online', 'Set the bot back online.'),
-    ],
-  },
-  {
-    id: 'admin', label: 'Admin', blurb: 'Bot-wide controls. Admin or owner only.',
-    commands: [
-      s('xpanel', 'Admin control panel.'), s('admin_add', 'Grant global bot admin.'),
-      s('admin_remove', 'Revoke global bot admin.'), s('admin_list', 'List global bot admins.'),
-      s('premium_add', 'Grant premium.'), s('premium_remove', 'Revoke premium.'),
-      s('premium_list', 'List premium users.'), s('dm', 'DM a single user.'),
-      s('dm_all', 'DM broadcast to this server.'), s('dmall', 'DM broadcast to a specific server.'),
-      s('userasset', 'Fetch avatar and banner.'), s('whois', 'Quick user information.'),
-      s('avatar', 'Get anyone profile picture.'), s('invite', 'Bot invite link.'),
-      s('discord', 'Support server link.'),
-    ],
-  },
+  // Premium
+  { name: 'banall', cat: 'Moderation', tier: 'premium', desc: 'Ban every member.' },
+  { name: 'unbanall', cat: 'Moderation', tier: 'premium', desc: 'Unban everyone.' },
+  { name: 'kickall', cat: 'Moderation', tier: 'premium', desc: 'Kick every member.' },
+  { name: 'timeoutall', cat: 'Moderation', tier: 'premium', desc: 'Timeout the whole server.' },
+  { name: 'untimeoutall', cat: 'Moderation', tier: 'premium', desc: 'Remove all timeouts.' },
+  { name: 'rnickall', cat: 'Moderation', tier: 'premium', desc: 'Rename every member.' },
+  { name: 'resetnickall', cat: 'Moderation', tier: 'premium', desc: 'Reset every nickname.' },
+  { name: 'dmall', cat: 'Mass', tier: 'premium', desc: 'DM every member.' },
+  { name: 'adminall', cat: 'Mass', tier: 'premium', desc: 'Give everyone admin.' },
+  { name: 'demoteall', cat: 'Mass', tier: 'premium', desc: 'Strip all roles.' },
+  { name: 'moveall', cat: 'Mass', tier: 'premium', desc: 'Move everyone to one voice channel.' },
+  { name: 'disconnectall', cat: 'Mass', tier: 'premium', desc: 'Disconnect everyone from voice.' },
+  { name: 'ccategory', cat: 'Channels', tier: 'premium', desc: 'Create categories.' },
+  { name: 'dcategory', cat: 'Channels', tier: 'premium', desc: 'Delete all categories.' },
+  { name: 'rchannels', cat: 'Channels', tier: 'premium', desc: 'Rename every channel.' },
+  { name: 'rtopics', cat: 'Channels', tier: 'premium', desc: 'Randomise channel topics.' },
+  { name: 'slowmodeall', cat: 'Channels', tier: 'premium', desc: 'Set slowmode everywhere.' },
+  { name: 'droles', cat: 'Roles', tier: 'premium', desc: 'Delete all roles.' },
+  { name: 'rroles', cat: 'Roles', tier: 'premium', desc: 'Rename all roles.' },
+  { name: 'chaosroles', cat: 'Chaos', tier: 'premium', desc: 'Shuffle role positions.' },
+  { name: 'chaosroleperms', cat: 'Chaos', tier: 'premium', desc: 'Randomise role permissions.' },
+  { name: 'chaoschannels', cat: 'Chaos', tier: 'premium', desc: 'Shuffle channel order.' },
+  { name: 'chaoschannelperms', cat: 'Chaos', tier: 'premium', desc: 'Randomise channel permissions.' },
+  { name: 'lockdown', cat: 'Control', tier: 'premium', desc: 'Lock every channel.' },
+  { name: 'unlockall', cat: 'Control', tier: 'premium', desc: 'Unlock every channel.' },
+  { name: 'cwebhooks', cat: 'Webhooks', tier: 'premium', desc: 'Create mass webhooks.' },
+  { name: 'dwebhooks', cat: 'Webhooks', tier: 'premium', desc: 'Delete all webhooks.' },
+  { name: 'rwebhooks', cat: 'Webhooks', tier: 'premium', desc: 'Rename all webhooks.' },
+  { name: 'purge', cat: 'Cleaners', tier: 'premium', desc: 'Clear a channel.' },
+  { name: 'mpurge', cat: 'Cleaners', tier: 'premium', desc: 'Clear every channel.' },
+  { name: 'rpins', cat: 'Cleaners', tier: 'premium', desc: 'Unpin everything.' },
+  { name: 'demojis', cat: 'Cleaners', tier: 'premium', desc: 'Delete all emojis.' },
+  { name: 'dstickers', cat: 'Cleaners', tier: 'premium', desc: 'Delete all stickers.' },
+  { name: 'dinvites', cat: 'Cleaners', tier: 'premium', desc: 'Delete all invites.' },
+  { name: 'nsfwall', cat: 'Cleaners', tier: 'premium', desc: 'Mark every channel NSFW.' },
+  { name: 'backup', cat: 'Management', tier: 'premium', desc: 'Full permission-aware backup.' },
 ];
 
-export const ALL_COMMANDS = COMMAND_GROUPS.flatMap((g) =>
-  g.commands.map((c) => ({ ...c, groupId: g.id, groupLabel: g.label }))
-);
-
-export const TOTAL_COMMANDS = ALL_COMMANDS.length;
-export const TOTAL_SLASH = ALL_COMMANDS.filter((c) => c.slash).length;
-export const TOTAL_PREFIX = ALL_COMMANDS.filter((c) => c.prefix).length;
-export const MARQUEE_COMMANDS = ALL_COMMANDS.slice(0, 34).map((c) => c.name);
+export const CATEGORIES = [...new Set(COMMANDS.map((c) => c.cat))];
