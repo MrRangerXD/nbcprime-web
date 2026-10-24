@@ -15,7 +15,7 @@ const parseDuration = (str) => {
   return Number(m[1]) * { s: 1000, m: 60000, h: 3600000, d: 86400000 }[m[2].toLowerCase()];
 };
 
-// vercel.app / netlify.app etc PUBLIC SUFFIX hain -> unpe cookie scope karna galat hai.
+// vercel.app / netlify.app etc PUBLIC SUFFIX hain -> unpe cookie scope karna unreliable hai.
 // Host-only cookie bhi XHR pe API host tak pahunchti hai, isliye host-only hi rakho.
 const PUBLIC_SUFFIXES = new Set([
   'vercel.app', 'now.sh', 'netlify.app', 'pages.dev', 'onrender.com',
@@ -27,13 +27,13 @@ export const cookieDomainFor = (req) => {
   const configured = String(env.COOKIE_DOMAIN || '').trim().replace(/^\./, '');
 
   if (!configured || configured === 'localhost') return undefined;
-  if (PUBLIC_SUFFIXES.has(configured)) return undefined;      // <-- .vercel.app yahin rukta hai
+  if (PUBLIC_SUFFIXES.has(configured)) return undefined;   // <-- .vercel.app yahin rukta hai
   if (host === configured || host.endsWith('.' + configured)) return '.' + configured;
   return undefined;
 };
 
-// SameSite=None ke liye Secure MUST hai. Prod me frontend aur api alag hosts hain,
-// to browser ke liye request CROSS-SITE hai -> 'lax' cookie XHR pe drop ho jaati hai.
+// SameSite=None ke liye Secure MUST hai. Prod me frontend aur api alag SITES hain,
+// to request cross-site hai -> 'lax' cookie XHR pe drop ho jaati hai.
 export const secureCookies = () => env.NODE_ENV === 'production' || env.COOKIE_SECURE;
 
 export const cookieOptions = (req) => ({
