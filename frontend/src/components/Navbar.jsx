@@ -1,89 +1,100 @@
-import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
-import { Menu, X, LogIn } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Link, NavLink, useLocation } from 'react-router-dom';
+import { Menu, X, LayoutDashboard, LogOut, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { avatarUrl } from '../lib/format';
+import Logo from './Logo';
+import { Badge } from './ui';
 
 const links = [
-  { to: '/socials', label: 'Socials' },
+  { to: '/', label: 'Home' },
+  { to: '/pricing', label: 'Pricing' },
+  { to: '/testimonials', label: 'What Users Say' },
   { to: '/blogs', label: 'Blogs' },
   { to: '/news', label: 'News' },
+  { to: '/faq', label: 'FAQ' },
 ];
 
 export default function Navbar() {
-  const { user, login } = useAuth();
+  const { user, login, logout } = useAuth();
   const [open, setOpen] = useState(false);
-  const location = useLocation();
-  const navigate = useNavigate();
+  const [scrolled, setScrolled] = useState(false);
+  const { pathname } = useLocation();
 
-  const goPricing = () => {
-    setOpen(false);
-    const jump = () => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    if (location.pathname === '/') return jump();
-    navigate('/');
-    setTimeout(jump, 150);
-  };
+  useEffect(() => { setOpen(false); }, [pathname]);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 12);
+    window.addEventListener('scroll', onScroll);
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-edge/70 bg-void/80 backdrop-blur-xl">
-      <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5">
-        <Link to="/" className="flex items-center gap-2.5">
-          <img src="/logo.png" alt="NBCPrime" className="h-8 w-8 rounded-lg object-cover" />
-          <span className="font-display text-lg font-bold tracking-tight">
-            NBC<span className="text-accent">Prime</span>
-          </span>
-        </Link>
+    <header className={
+      'sticky top-0 z-50 border-b transition-colors ' +
+      (scrolled ? 'border-edge bg-void/85 backdrop-blur-xl' : 'border-transparent')
+    }>
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-5">
+        <Link to="/"><Logo /></Link>
 
-        <div className="hidden items-center gap-1 md:flex">
+        <nav className="hidden items-center gap-1 lg:flex">
           {links.map((l) => (
             <NavLink
               key={l.to}
               to={l.to}
+              end={l.to === '/'}
               className={({ isActive }) =>
-                'rounded-lg px-3.5 py-2 text-sm transition-colors ' +
-                (isActive ? 'bg-white/5 text-white' : 'text-muted hover:text-white')
+                'rounded-lg px-3 py-2 text-sm transition ' +
+                (isActive ? 'text-white' : 'text-muted hover:text-white')
               }
             >
               {l.label}
             </NavLink>
           ))}
-          <button onClick={goPricing} className="rounded-lg px-3.5 py-2 text-sm text-muted transition-colors hover:text-white">
-            Pricing
-          </button>
-        </div>
+        </nav>
 
-        <div className="hidden items-center gap-3 md:flex">
+        <div className="ml-auto hidden items-center gap-2 lg:flex">
           {user ? (
-            <Link to="/dashboard" className="btn-ghost">
-              <img src={avatarUrl(user.id, user.avatar)} alt="" className="h-5 w-5 rounded-full" />
-              Dashboard
-            </Link>
+            <>
+              <Link to="/dashboard" className="btn-ghost">
+                <LayoutDashboard size={15} /> Dashboard
+              </Link>
+              <div className="flex items-center gap-2 rounded-xl border border-edge bg-surface/60 px-2.5 py-1.5">
+                <img src={avatarUrl(user.id, user.avatar)} alt="" className="h-6 w-6 rounded-full" />
+                <span className="max-w-[110px] truncate text-xs">{user.globalName || user.username}</span>
+                {user.isPremium && <Badge tone="solid">PRO</Badge>}
+                <button onClick={logout} title="Logout" className="text-muted hover:text-red-400"><LogOut size={14} /></button>
+              </div>
+            </>
           ) : (
-            <button onClick={login} className="btn-primary">
-              <LogIn size={16} /> Sign in with Discord
-            </button>
+            <>
+              <Link to="/pricing" className="btn-ghost">Pricing</Link>
+              <button onClick={login} className="btn-primary">Sign in with Discord</button>
+            </>
           )}
         </div>
 
-        <button className="text-white md:hidden" onClick={() => setOpen(!open)} aria-label="Toggle menu">
-          {open ? <X /> : <Menu />}
+        <button className="ml-auto lg:hidden" onClick={() => setOpen((v) => !v)}>
+          {open ? <X size={20} /> : <Menu size={20} />}
         </button>
-      </nav>
+      </div>
 
       {open && (
-        <div className="border-t border-edge bg-panel px-5 py-4 md:hidden">
-          {links.map((l) => (
-            <Link key={l.to} to={l.to} onClick={() => setOpen(false)} className="block py-2.5 text-sm text-muted">
-              {l.label}
-            </Link>
-          ))}
-          <button onClick={goPricing} className="block py-2.5 text-sm text-muted">Pricing</button>
-          <div className="mt-3">
+        <div className="border-t border-edge bg-void/95 backdrop-blur-xl lg:hidden">
+          <div className="space-y-1 p-4">
+            {links.map((l) => (
+              <Link key={l.to} to={l.to} className="block rounded-lg px-3 py-2.5 text-sm text-muted hover:bg-white/5 hover:text-white">
+                {l.label}
+              </Link>
+            ))}
+            <div className="hairline my-3" />
             {user ? (
-              <Link to="/dashboard" onClick={() => setOpen(false)} className="btn-ghost w-full">Dashboard</Link>
+              <>
+                <Link to="/dashboard" className="btn-primary w-full">Dashboard</Link>
+                <button onClick={logout} className="btn-ghost mt-2 w-full">Logout</button>
+              </>
             ) : (
               <button onClick={login} className="btn-primary w-full">
-                <LogIn size={16} /> Sign in with Discord
+                <Sparkles size={15} /> Sign in with Discord
               </button>
             )}
           </div>
