@@ -5,6 +5,9 @@ import ProtectedRoute from './components/ProtectedRoute';
 import ScrollToTop from './components/ScrollToTop';
 
 import Home from './pages/Home';
+import Pricing from './pages/Pricing';
+import Faq from './pages/Faq';
+import Testimonials from './pages/Testimonials';
 import Login from './pages/Login';
 import Socials from './pages/Socials';
 import Posts from './pages/Posts';
@@ -16,9 +19,9 @@ import Leaderboard from './pages/dash/Leaderboard';
 import Servers from './pages/dash/Servers';
 import ServerDetail from './pages/dash/ServerDetail';
 import Giveaways from './pages/dash/Giveaways';
+import Premium from './pages/dash/Premium';
 import Profile from './pages/dash/Profile';
-import Admin from './pages/admin/Admin';
-import Premium from './pages/Premium';
+import Admin from './pages/dash/Admin';
 
 export default function App() {
   return (
@@ -27,6 +30,9 @@ export default function App() {
       <Routes>
         <Route element={<PublicLayout />}>
           <Route path="/" element={<Home />} />
+          <Route path="/pricing" element={<Pricing />} />
+          <Route path="/faq" element={<Faq />} />
+          <Route path="/testimonials" element={<Testimonials />} />
           <Route path="/login" element={<Login />} />
           <Route path="/socials" element={<Socials />} />
           <Route path="/blogs" element={<Posts type="blog" />} />
@@ -44,7 +50,7 @@ export default function App() {
           <Route path="giveaways" element={<Giveaways />} />
           <Route path="premium" element={<Premium />} />
           <Route path="profile" element={<Profile />} />
-          <Route path="admin" element={<Admin />} />
+          <Route path="admin" element={<ProtectedRoute adminOnly><Admin /></ProtectedRoute>} />
         </Route>
       </Routes>
     </>
