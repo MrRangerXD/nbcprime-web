@@ -1,7 +1,7 @@
 import { env } from '../config/env.js';
 
 const BASE = (env.BOT_API_URL || '').replace(/\/+$/, '');
-const TIMEOUT_MS = 15000;
+const TIMEOUT_MS = 20000;
 
 export const BotDown = (e) =>
   e?.name === 'AbortError' ||
