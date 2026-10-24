@@ -1,114 +1,70 @@
 import { useMemo, useState } from 'react';
-import { Search, Terminal, Zap, Check, X } from 'lucide-react';
-import { COMMAND_GROUPS, ALL_COMMANDS, TOTAL_COMMANDS, TOTAL_SLASH, TOTAL_PREFIX } from '../lib/commands';
+import { Search, Copy, Check } from 'lucide-react';
+import { COMMANDS, CATEGORIES } from '../lib/commands';
+import { Badge, Pill } from './ui';
 
-export default function CommandExplorer() {
+export default function CommandExplorer({ compact = false }) {
   const [query, setQuery] = useState('');
-  const [group, setGroup] = useState('all');
-  const [copied, setCopied] = useState(null);
+  const [cat, setCat] = useState('All');
+  const [tier, setTier] = useState('all');
+  const [copied, setCopied] = useState('');
 
-  const results = useMemo(() => {
+  const list = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return ALL_COMMANDS.filter((c) => {
-      if (group !== 'all' && c.groupId !== group) return false;
-      if (!q) return true;
-      return c.name.toLowerCase().includes(q) || c.desc.toLowerCase().includes(q);
+    return COMMANDS.filter((c) => {
+      if (cat !== 'All' && c.cat !== cat) return false;
+      if (tier !== 'all' && c.tier !== tier) return false;
+      if (q && !c.name.includes(q) && !c.desc.toLowerCase().includes(q)) return false;
+      return true;
     });
-  }, [query, group]);
+  }, [query, cat, tier]);
 
-  const copy = async (name) => {
-    try { await navigator.clipboard.writeText('>' + name); } catch { /* blocked */ }
-    setCopied(name);
-    setTimeout(() => setCopied(null), 1200);
+  const copy = (name) => {
+    navigator.clipboard?.writeText(`>${name}`).then(() => {
+      setCopied(name);
+      setTimeout(() => setCopied(''), 1200);
+    });
   };
 
   return (
-    <section id="commands" className="mx-auto max-w-7xl scroll-mt-24 px-5 py-24">
-      <div className="flex flex-wrap items-end justify-between gap-6">
-        <div className="max-w-2xl">
-          <span className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-xs font-medium text-accent">
-            <Terminal size={12} /> Command library
-          </span>
-          <h2 className="mt-5 font-display text-3xl font-bold md:text-4xl">
-            {TOTAL_COMMANDS} commands. Slash and prefix.
-          </h2>
-          <p className="mt-3 text-muted">
-            Every command works from chat and from the dashboard. {TOTAL_SLASH} slash commands, {TOTAL_PREFIX} prefix commands.
-          </p>
+    <div className="card p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-dim" />
+          <input className="input pl-10" placeholder="Search commands..." value={query} onChange={(e) => setQuery(e.target.value)} />
         </div>
-        <div className="flex gap-3">
-          <div className="card px-5 py-4 text-center">
-            <div className="font-display text-2xl font-bold text-accent">{TOTAL_COMMANDS}</div>
-            <div className="mt-1 text-[11px] uppercase tracking-wider text-muted">Total</div>
-          </div>
-          <div className="card px-5 py-4 text-center">
-            <div className="font-display text-2xl font-bold text-accent">{TOTAL_SLASH}</div>
-            <div className="mt-1 text-[11px] uppercase tracking-wider text-muted">Slash</div>
-          </div>
-          <div className="card px-5 py-4 text-center">
-            <div className="font-display text-2xl font-bold text-accent">{COMMAND_GROUPS.length}</div>
-            <div className="mt-1 text-[11px] uppercase tracking-wider text-muted">Categories</div>
-          </div>
+        <div className="flex gap-2">
+          <Pill active={tier === 'all'} onClick={() => setTier('all')}>All</Pill>
+          <Pill active={tier === 'free'} onClick={() => setTier('free')}>Free</Pill>
+          <Pill active={tier === 'premium'} onClick={() => setTier('premium')}>Premium</Pill>
         </div>
       </div>
 
-      <div className="relative mt-10">
-        <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" />
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder={`Search ${TOTAL_COMMANDS} commands...`}
-          className="input pl-11 pr-11"
-        />
-        {query && (
-          <button onClick={() => setQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-muted hover:text-white">
-            <X size={15} />
-          </button>
-        )}
-      </div>
-
-      <div className="no-scrollbar mt-4 flex gap-2 overflow-x-auto pb-1">
-        <button
-          onClick={() => setGroup('all')}
-          className={'shrink-0 rounded-xl border px-3.5 py-2 text-sm transition ' + (group === 'all' ? 'border-accent/50 bg-accent/10 text-white' : 'border-edge text-muted hover:bg-white/5 hover:text-white')}
-        >
-          All ({TOTAL_COMMANDS})
-        </button>
-        {COMMAND_GROUPS.map((g) => (
-          <button
-            key={g.id}
-            onClick={() => setGroup(g.id)}
-            className={'shrink-0 rounded-xl border px-3.5 py-2 text-sm transition ' + (group === g.id ? 'border-accent/50 bg-accent/10 text-white' : 'border-edge text-muted hover:bg-white/5 hover:text-white')}
-          >
-            {g.label} ({g.commands.length})
-          </button>
-        ))}
-      </div>
-
-      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {results.map((c) => (
-          <div key={c.groupId + c.name} className="card card-hover group p-4">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex min-w-0 items-center gap-2">
-                {c.prefix && <span className="truncate font-mono text-sm text-accent">&gt;{c.name}</span>}
-                {c.slash && <span className="truncate font-mono text-sm text-accent">/{c.name}</span>}
-              </div>
-              <button onClick={() => copy(c.name)} className="shrink-0 text-muted opacity-0 transition group-hover:opacity-100 hover:text-white">
-                {copied === c.name ? <Check size={13} className="text-emerald-400" /> : <Zap size={13} />}
-              </button>
-            </div>
-            <p className="mt-2 text-[13px] leading-relaxed text-muted">{c.desc}</p>
-            <div className="mt-3 text-[10px] uppercase tracking-wider text-white/30">{c.groupLabel}</div>
-          </div>
-        ))}
-      </div>
-
-      {results.length === 0 && (
-        <div className="card mt-6 p-10 text-center">
-          <p className="font-display text-lg">No command matches "{query}"</p>
-          <p className="mt-1 text-sm text-muted">Try a shorter search or pick a category.</p>
+      {!compact && (
+        <div className="no-scrollbar mt-4 flex gap-2 overflow-x-auto pb-1">
+          <Pill active={cat === 'All'} onClick={() => setCat('All')}>All</Pill>
+          {CATEGORIES.map((c) => <Pill key={c} active={cat === c} onClick={() => setCat(c)}>{c}</Pill>)}
         </div>
       )}
-    </section>
+
+      <div className="mt-5 max-h-[520px] space-y-2 overflow-y-auto pr-1">
+        {list.map((c) => (
+          <div key={c.name + c.cat} className="flex items-start gap-3 rounded-xl border border-edge bg-surface/40 p-3.5 transition hover:border-white/20">
+            <button onClick={() => copy(c.name)} className="mt-0.5 shrink-0 rounded-lg border border-edge p-1.5 text-muted transition hover:border-white/30 hover:text-white">
+              {copied === c.name ? <Check size={13} /> : <Copy size={13} />}
+            </button>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <code className="mono text-sm text-white">&gt;{c.name}</code>
+                <Badge tone={c.tier === 'premium' ? 'solid' : 'default'}>{c.tier === 'premium' ? 'PREMIUM' : 'FREE'}</Badge>
+                <span className="text-[11px] text-dim">{c.cat}</span>
+              </div>
+              <p className="mt-1 text-[13px] leading-relaxed text-muted">{c.desc}</p>
+            </div>
+          </div>
+        ))}
+        {!list.length && <p className="py-8 text-center text-sm text-dim">No commands match.</p>}
+      </div>
+    </div>
   );
 }
