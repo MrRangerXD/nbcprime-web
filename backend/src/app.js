@@ -17,16 +17,30 @@ import adminRoutes from './routes/admin.js';
 import ingestRoutes from './routes/ingest.js';
 import premiumRoutes from './routes/premium.js';
 
-// inpe session dhundhne ka koi matlab nahi
 const NO_AUTH_PREFIXES = ['/api/public', '/api/ingest'];
+
+// FIX: sirf ek origin nahi — localhost + vercel previews bhi
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+  if (origin === env.FRONTEND_URL) return true;
+  if (/^https?:\/\/localhost(:\d+)?$/.test(origin)) return true;
+  if (/^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin)) return true;
+  return false;
+};
 
 export function createApp() {
   const app = express();
   app.set('trust proxy', 1);
 
+  // FIX: Vercel rewrite se aane wale /api/index ko normalise karo
+  app.use((req, _res, next) => {
+    if (req.url.startsWith('/api/index')) req.url = req.url.slice('/api/index'.length) || '/';
+    next();
+  });
+
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   app.use(cors({
-    origin: env.FRONTEND_URL,
+    origin: (origin, cb) => cb(null, isAllowedOrigin(origin)),
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -38,11 +52,8 @@ export function createApp() {
   app.use('/api', rateLimit({ windowMs: 60000, max: 300, standardHeaders: true }));
   app.use('/api/auth', rateLimit({ windowMs: 60000, max: 60 }));
 
-  // FIX: public/ingest pe DB query skip
   app.use((req, res, next) => {
-    if (req.path === '/api/health' || NO_AUTH_PREFIXES.some((p) => req.path.startsWith(p))) {
-      return next();
-    }
+    if (req.path === '/api/health' || NO_AUTH_PREFIXES.some((p) => req.path.startsWith(p))) return next();
     return attachUser(req, res, next);
   });
 
