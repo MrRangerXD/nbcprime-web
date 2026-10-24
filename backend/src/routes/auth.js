@@ -2,8 +2,8 @@ import { Router } from 'express';
 import axios from 'axios';
 import crypto from 'node:crypto';
 import { env, adminIds, isOwner } from '../config/env.js';
-import { one } from '../db.js';
-import { signToken, cookieName, cookieOptions, requireAuth } from '../middleware/auth.js';
+import { one, q } from '../db.js';
+import { signToken, cookieName, cookieOptions, cookieDomainFor, requireAuth } from '../middleware/auth.js';
 import { encrypt } from '../lib/crypto.js';
 import { audit } from '../services/audit.js';
 
@@ -11,8 +11,8 @@ const router = Router();
 const DISCORD_API = 'https://discord.com/api/v10';
 
 const STATE_COOKIE = 'nbc_state';
-const stateCookieOpts = () => ({ httpOnly: true, secure: env.COOKIE_SECURE, maxAge: 600000, sameSite: 'lax', path: '/' });
-const stateClearOpts  = () => ({ httpOnly: true, secure: env.COOKIE_SECURE, sameSite: 'lax', path: '/' });
+const stateCookieOpts = (req) => ({ httpOnly: true, secure: env.COOKIE_SECURE, maxAge: 600000, sameSite: 'lax', path: '/', domain: cookieDomainFor(req) });
+const stateClearOpts  = (req) => ({ httpOnly: true, secure: env.COOKIE_SECURE, sameSite: 'lax', path: '/', domain: cookieDomainFor(req) });
 
 const timingSafeEqualStr = (a, b) => {
   if (!a || !b) return false;
@@ -20,9 +20,21 @@ const timingSafeEqualStr = (a, b) => {
   return ba.length === bb.length && crypto.timingSafeEqual(ba, bb);
 };
 
-router.get('/discord', (req, res) => {
+router.get('/discord', async (req, res) => {
   const state = crypto.randomBytes(16).toString('hex');
-  res.cookie(STATE_COOKIE, state, stateCookieOpts());
+  res.cookie(STATE_COOKIE, state, stateCookieOpts(req));
+
+  // FIX: cookie proxy se aati hai (host galat ho sakta hai) -> DB me bhi state rakho
+  try {
+    await q(
+      `insert into oauth_states (state, expires_at)
+       values ($1, now() + interval '10 minutes')
+       on conflict (state) do update set expires_at = excluded.expires_at`,
+      [state]
+    );
+  } catch (e) {
+    console.error('[auth] state insert failed:', e.message);
+  }
 
   const params = new URLSearchParams({
     client_id: env.DISCORD_CLIENT_ID,
@@ -46,7 +58,21 @@ router.get('/discord/callback', async (req, res) => {
   const fail = (reason) => res.redirect(env.FRONTEND_URL + '/login?error=' + reason);
 
   if (!code) return fail('no_code');
-  if (!timingSafeEqualStr(state, expected)) return fail('bad_state');
+  // FIX: cookie match kare YA DB me state mile -> pass
+  const cookieOk = timingSafeEqualStr(state, expected);
+  let dbOk = false;
+  if (state) {
+    try {
+      const row = await one(
+        `delete from oauth_states where state = $1 and expires_at > now() returning state`,
+        [String(state)]
+      );
+      dbOk = Boolean(row);
+    } catch (e) {
+      console.error('[auth] state lookup failed:', e.message);
+    }
+  }
+  if (!cookieOk && !dbOk) return fail('bad_state');
 
   try {
     const tokenRes = await axios.post(
@@ -97,8 +123,8 @@ router.get('/discord/callback', async (req, res) => {
        new Date(Date.now() + expires_in * 1000), adminGuilds, adminIds.includes(me.id)]
     );
 
-    res.cookie(cookieName, signToken(user), cookieOptions());
-    res.clearCookie(STATE_COOKIE, stateClearOpts());
+    res.cookie(cookieName, signToken(user), cookieOptions(req));
+    res.clearCookie(STATE_COOKIE, stateClearOpts(req));
     await audit({ user, ip: req.ip }, 'login', user.discordId);
     res.redirect(env.FRONTEND_URL + '/dashboard');
   } catch (err) {
@@ -108,8 +134,8 @@ router.get('/discord/callback', async (req, res) => {
 });
 
 router.post('/logout', (req, res) => {
-  res.clearCookie(cookieName, { ...cookieOptions(), maxAge: undefined });
-  res.clearCookie(STATE_COOKIE, stateClearOpts());
+  res.clearCookie(cookieName, { ...cookieOptions(req), maxAge: undefined });
+  res.clearCookie(STATE_COOKIE, stateClearOpts(req));
   res.json({ ok: true });
 });
 
