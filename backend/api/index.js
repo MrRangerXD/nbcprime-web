@@ -1,23 +1,39 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createApp } from '../src/app.js';
-import { connectDB, pool } from '../src/db.js';
-import { env, envReport } from '../src/config/env.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const app = createApp();
 
+let app = null;
+let pool = null;
+let connectDB = null;
+let env = {};
+let envReport = {};
 let ready = null;
 let bootError = null;
 let lastCleanup = Date.now();
 
+async function loadEnv() {
+  if (envReport && Object.keys(envReport).length) return;
+  const m = await import('../src/config/env.js');
+  env = m.env;
+  envReport = m.envReport;
+}
+
 async function boot() {
   try {
+    await loadEnv();
+    const [appMod, dbMod] = await Promise.all([
+      import('../src/app.js'),
+      import('../src/db.js'),
+    ]);
+    app = appMod.createApp();
+    pool = dbMod.pool;
+    connectDB = dbMod.connectDB;
     await connectDB();
   } catch (e) {
-    bootError = 'db_connect: ' + e.message;
-    console.error('[boot]', bootError);
+    bootError = 'load/db: ' + (e?.message || e);
+    console.error('[boot]', bootError, e?.stack || '');
     return; // health chalta rahega
   }
 
@@ -31,18 +47,17 @@ async function boot() {
     }
     console.log('[db] schema verified');
   } catch (e) {
-    bootError = 'schema_read: ' + e.message;
+    bootError = 'schema_read: ' + (e?.message || e);
   }
 }
 
 function ensureReady() {
-  if (!ready) {
-    ready = boot().catch((err) => { bootError = 'boot: ' + err.message; });
-  }
+  if (!ready) ready = boot();
   return ready;
 }
 
 async function maybeCleanup() {
+  if (!pool) return;
   if (Date.now() - lastCleanup < 6 * 60 * 60 * 1000) return;
   lastCleanup = Date.now();
   try {
@@ -53,17 +68,23 @@ async function maybeCleanup() {
 }
 
 export default async function handler(req, res) {
-  // Vercel rewrite -> /api/index  ko normalise karo
-  if (req.url.startsWith('/api/index')) req.url = req.url.slice('/api/index'.length) || '/';
-
-  const pathname = (req.url || '/').split('?')[0];
+  // Vercel rewrite -> /api/index  ko normalise karo (dono form match karo)
+  const raw = (req.url || '/').split('?')[0];
+  const pathname = raw.startsWith('/api/index')
+    ? (raw.slice('/api/index'.length) || '/')
+    : raw;
 
   // health + diag kabhi DB pe depend na karein
-  if (pathname === '/api/health') {
+  if (raw === '/api/health' || pathname === '/api/health') {
     return res.json({ ok: true, ts: Date.now(), db: !bootError, boot: bootError || null });
   }
 
-  if (pathname === '/api/diag') {
+  if (raw === '/api/diag' || pathname === '/api/diag') {
+    try {
+      await loadEnv();
+    } catch (e) {
+      return res.status(500).json({ ok: false, error: 'env_import_failed', detail: e.message, stack: e.stack });
+    }
     return res.json({
       ok: true,
       ts: Date.now(),
@@ -79,7 +100,13 @@ export default async function handler(req, res) {
     return res.status(500).json({ ok: false, error: 'boot_failed', detail: String(err?.message || err) });
   }
 
+  if (!app) {
+    return res.status(500).json({ ok: false, error: 'app_not_loaded', detail: bootError });
+  }
+
   maybeCleanup().catch(() => {});
+
+  if (req.url.startsWith('/api/index')) req.url = req.url.slice('/api/index'.length) || '/';
 
   try {
     return await app(req, res);
