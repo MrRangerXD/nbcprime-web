@@ -1,8 +1,6 @@
 {
-  "regions": ["bom1"],
   "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }],
   "functions": {
     "api/index.js": { "includeFiles": "src/**/*.sql", "maxDuration": 60, "memory": 1024 }
-  },
-  "crons": [{ "path": "/api/premium/cron/verify", "schedule": "*/5 * * * *" }]
+  }
 }
