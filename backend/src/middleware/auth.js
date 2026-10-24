@@ -15,12 +15,26 @@ const parseDuration = (str) => {
   return Number(m[1]) * { s: 1000, m: 60000, h: 3600000, d: 86400000 }[m[2].toLowerCase()];
 };
 
-export const cookieOptions = () => ({
+// FIX: vercel.app public suffix hai -> api-x.vercel.app aur x.vercel.app SIBLINGS hain.
+// Host-only cookie doosre host pe nahi jaati, isliye dono ko cover karne ke liye
+// '.vercel.app' domain chahiye. Galat COOKIE_DOMAIN ho to ignore karo.
+export const cookieDomainFor = (req) => {
+  const host = String(req?.hostname || req?.headers?.host || '').split(':')[0].toLowerCase();
+  const configured = String(env.COOKIE_DOMAIN || '').trim().replace(/^\./, '');
+
+  if (configured && configured !== 'localhost') {
+    // sirf tab use karo jab request host se domain-match kare
+    if (host === configured || host.endsWith('.' + configured)) return '.' + configured;
+  }
+  if (host.endsWith('.vercel.app')) return '.vercel.app';
+  return undefined; // localhost / custom domain -> host-only
+};
+
+export const cookieOptions = (req) => ({
   httpOnly: true,
   secure: env.COOKIE_SECURE,
-  // FIX: frontend/api alag domain (cross-site) ho to 'none' chahiye, warna cookie bhej hi nahi hoti
   sameSite: env.COOKIE_SECURE ? 'none' : 'lax',
-  domain: !env.COOKIE_DOMAIN || env.COOKIE_DOMAIN === 'localhost' ? undefined : env.COOKIE_DOMAIN,
+  domain: cookieDomainFor(req),
   maxAge: parseDuration(env.JWT_EXPIRES),
   path: '/',
 });
