@@ -20,6 +20,8 @@ const urlOr = (fallback) =>
     .transform((v) => (v && v.trim() ? v.trim().replace(/\/+$/, '') : fallback))
     .catch(fallback);
 
+const DEFAULT_JWT = 'change-me-in-vercel-32-chars';
+
 const schema = z.object({
   NODE_ENV: strOr('production'),
   PORT: z.coerce.number().catch(4000),
@@ -30,7 +32,7 @@ const schema = z.object({
   DB_STATEMENT_TIMEOUT: intFromEnv(0),
   DB_QUERY_TIMEOUT: intFromEnv(20000),
 
-  JWT_SECRET: strOr('change-me-in-vercel-32-chars'),
+  JWT_SECRET: strOr(DEFAULT_JWT),
   JWT_EXPIRES: strOr('7d'),
 
   COOKIE_DOMAIN: strOr(''),
