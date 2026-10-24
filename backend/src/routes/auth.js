@@ -10,13 +10,7 @@ import { audit } from '../services/audit.js';
 const router = Router();
 const DISCORD_API = 'https://discord.com/api/v10';
 
-const stateCookie = {
-  httpOnly: true,
-  secure: env.COOKIE_SECURE,
-  maxAge: 600000,
-  sameSite: 'lax',
-  path: '/',
-};
+const stateCookie = { httpOnly: true, secure: env.COOKIE_SECURE, maxAge: 600000, sameSite: 'lax', path: '/' };
 
 router.get('/discord', (req, res) => {
   const state = crypto.randomBytes(16).toString('hex');
@@ -33,7 +27,6 @@ router.get('/discord', (req, res) => {
   res.redirect('https://discord.com/oauth2/authorize?' + params);
 });
 
-// FIX: permissions null/missing hone pe BigInt() throw karta tha aur pura login fail hota tha
 const isGuildAdmin = (g) => {
   if (g.owner) return true;
   try { return (BigInt(g.permissions ?? '0') & 0x20n) === 0x20n; } catch { return false; }
@@ -91,12 +84,9 @@ router.get('/discord/callback', async (req, res) => {
          login_count = users.login_count + 1,
          updated_at = now()
        returning *`,
-      [
-        me.id, me.username, me.global_name, me.avatar, me.banner, me.email,
-        encrypt(access_token), encrypt(refresh_token),
-        new Date(Date.now() + expires_in * 1000),
-        adminGuilds, adminIds.includes(me.id),
-      ]
+      [me.id, me.username, me.global_name, me.avatar, me.banner, me.email,
+       encrypt(access_token), encrypt(refresh_token),
+       new Date(Date.now() + expires_in * 1000), adminGuilds, adminIds.includes(me.id)]
     );
 
     res.cookie(cookieName, signToken(user), cookieOptions());
@@ -111,7 +101,7 @@ router.get('/discord/callback', async (req, res) => {
 
 router.post('/logout', (req, res) => {
   res.clearCookie(cookieName, { ...cookieOptions(), maxAge: undefined });
-  res.clearCookie('nbc_state', stateCookie); // FIX: ye pehle clear nahi hota tha
+  res.clearCookie('nbc_state', stateCookie);
   res.json({ ok: true });
 });
 
@@ -127,8 +117,9 @@ router.get('/me', requireAuth, (req, res) => {
       isAdmin: u.isAdmin || isOwner(u.discordId) || adminIds.includes(u.discordId),
       isOwner: isOwner(u.discordId),
       isPremium: u.isPremium,
-      isBanned: u.isBanned,              // FIX
-      banReason: u.blacklistReason,      // FIX
+      premiumUntil: u.premiumUntil,
+      isBanned: u.isBanned,
+      banReason: u.blacklistReason,
       adminGuilds: u.adminGuilds || [],
     },
   });
