@@ -22,7 +22,7 @@ const timingSafeEqualStr = (a, b) => {
 
 router.get('/discord', (req, res) => {
   const state = crypto.randomBytes(16).toString('hex');
-  res.cookie('nbc_state', state, stateCookie);
+  res.cookie(STATE_COOKIE, state, stateCookieOpts());
 
   const params = new URLSearchParams({
     client_id: env.DISCORD_CLIENT_ID,
@@ -42,11 +42,11 @@ const isGuildAdmin = (g) => {
 
 router.get('/discord/callback', async (req, res) => {
   const { code, state } = req.query;
-  const expected = req.cookies?.nbc_state;
+  const expected = req.cookies?.[STATE_COOKIE];
   const fail = (reason) => res.redirect(env.FRONTEND_URL + '/login?error=' + reason);
 
   if (!code) return fail('no_code');
-  if (!state || state !== expected) return fail('bad_state');
+  if (!timingSafeEqualStr(state, expected)) return fail('bad_state');
 
   try {
     const tokenRes = await axios.post(
@@ -98,7 +98,7 @@ router.get('/discord/callback', async (req, res) => {
     );
 
     res.cookie(cookieName, signToken(user), cookieOptions());
-    res.clearCookie('nbc_state', stateCookie);
+    res.clearCookie(STATE_COOKIE, stateClearOpts());
     await audit({ user, ip: req.ip }, 'login', user.discordId);
     res.redirect(env.FRONTEND_URL + '/dashboard');
   } catch (err) {
@@ -109,7 +109,7 @@ router.get('/discord/callback', async (req, res) => {
 
 router.post('/logout', (req, res) => {
   res.clearCookie(cookieName, { ...cookieOptions(), maxAge: undefined });
-  res.clearCookie('nbc_state', stateCookie);
+  res.clearCookie(STATE_COOKIE, stateClearOpts());
   res.json({ ok: true });
 });
 
