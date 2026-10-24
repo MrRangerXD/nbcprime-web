@@ -47,6 +47,16 @@ export function createApp() {
     allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'X-Ingest-Key'],
   }));
   app.use(express.json({ limit: '1mb' }));
+  const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+  app.use('/api', (req, res, next) => {
+    if (SAFE_METHODS.has(req.method)) return next();
+    const raw = req.get('origin') || req.get('referer');
+    if (!raw) return next();
+    let origin;
+    try { origin = new URL(raw).origin; } catch { return next(); }
+    if (isAllowedOrigin(origin)) return next();
+    return res.status(403).json({ ok: false, error: 'csrf_origin_mismatch' });
+  });
 
   // FIX: body-less POST pe req.body undefined hota hai -> destructuring crash (giveaways/admin)
   app.use((req, _res, next) => {
