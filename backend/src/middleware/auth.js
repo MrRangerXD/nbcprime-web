@@ -18,19 +18,18 @@ const parseDuration = (str) => {
 export const cookieOptions = () => ({
   httpOnly: true,
   secure: env.COOKIE_SECURE,
-  sameSite: env.COOKIE_SECURE ? 'none' : 'lax',
+  // FIX: frontend /api ko proxy karta hai => same-origin => 'lax' kaafi aur safe hai
+  sameSite: 'lax',
   domain: !env.COOKIE_DOMAIN || env.COOKIE_DOMAIN === 'localhost' ? undefined : env.COOKIE_DOMAIN,
   maxAge: parseDuration(env.JWT_EXPIRES),
   path: '/',
 });
 
-// FIX: refresh request ko block na kare. Current request purane token se chalti hai.
 const refreshing = new Set();
 
 async function refreshInBackground(user) {
   if (refreshing.has(user.discordId)) return;
   refreshing.add(user.discordId);
-
   try {
     const refresh = decrypt(user.refreshToken);
     if (!refresh) return;
@@ -47,12 +46,12 @@ async function refreshInBackground(user) {
     );
 
     await q(
-      `update users set access_token = $2, refresh_token = $3, token_expires_at = $4, updated_at = now()
-        where discord_id = $1`,
+      `update users set access_token=$2, refresh_token=$3, token_expires_at=$4, updated_at=now()
+        where discord_id=$1`,
       [user.discordId, encrypt(data.access_token), encrypt(data.refresh_token),
        new Date(Date.now() + data.expires_in * 1000)]
     );
-  } catch { /* token rotate ho gaya ho sakta hai */ }
+  } catch { /* token rotate ho gaya */ }
   finally { refreshing.delete(user.discordId); }
 }
 
@@ -76,20 +75,17 @@ export async function attachUser(req, _res, next) {
 
   if (req.user?.isPremium && req.user.premiumUntil && new Date(req.user.premiumUntil).getTime() < Date.now()) {
     req.user.isPremium = false;
-    q('update users set is_premium = false, updated_at = now() where discord_id = $1', [req.user.discordId])
-      .catch(() => {});
+    q('update users set is_premium=false, updated_at=now() where discord_id=$1', [req.user.discordId]).catch(() => {});
   }
 
   next();
 }
 
-// FIX: banned user ko yahan block nahi karte, warna /api/auth/me 403 -> login loop
 export function requireAuth(req, res, next) {
   if (!req.user) return res.status(401).json({ ok: false, error: 'not_authenticated' });
   next();
 }
 
-// jahan actually ban lagana hai
 export function requireNotBanned(req, res, next) {
   if (!req.user) return res.status(401).json({ ok: false, error: 'not_authenticated' });
   if (req.user.isBanned) return res.status(403).json({ ok: false, error: 'banned', reason: req.user.blacklistReason || null });
@@ -109,13 +105,10 @@ export function requireOwner(req, res, next) {
   next();
 }
 
-// FIX: pehle ye bilkul use nahi hota tha
 export function requireGuildAdmin(req, res, next) {
   if (!req.user) return res.status(401).json({ ok: false, error: 'not_authenticated' });
-
   const gid = req.params.guildId || req.body?.guildId;
   if (!gid) return res.status(400).json({ ok: false, error: 'guild_id_required' });
-
   if (isGlobalAdmin(req.user) || (req.user.adminGuilds || []).map(String).includes(String(gid))) return next();
   return res.status(403).json({ ok: false, error: 'not_guild_admin' });
 }
