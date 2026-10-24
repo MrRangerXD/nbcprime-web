@@ -18,8 +18,8 @@ const parseDuration = (str) => {
 export const cookieOptions = () => ({
   httpOnly: true,
   secure: env.COOKIE_SECURE,
-  // FIX: frontend /api ko proxy karta hai => same-origin => 'lax' kaafi aur safe hai
-  sameSite: 'lax',
+  // FIX: frontend/api alag domain (cross-site) ho to 'none' chahiye, warna cookie bhej hi nahi hoti
+  sameSite: env.COOKIE_SECURE ? 'none' : 'lax',
   domain: !env.COOKIE_DOMAIN || env.COOKIE_DOMAIN === 'localhost' ? undefined : env.COOKIE_DOMAIN,
   maxAge: parseDuration(env.JWT_EXPIRES),
   path: '/',
