@@ -57,7 +57,13 @@ const schema = z.object({
 const parsed = schema.safeParse(process.env);
 
 // FIX: pehle yahan top-level throw tha -> poora lambda import pe mar jata tha
-export const env = parsed.success ? parsed.data : {};
+// FIX 2: parse fail hone par {} nahi, defaults ke saath safe object
+const safe = parsed.success ? parsed.data : {};
+export const env = {
+  ...safe,
+  JWT_SECRET: safe.JWT_SECRET || 'change-me-in-vercel-32-chars',
+  NODE_ENV: safe.NODE_ENV || 'production',
+};
 
 if (!parsed.success) {
   console.error('[env] parse issue ->', JSON.stringify(parsed.error.flatten().fieldErrors));
