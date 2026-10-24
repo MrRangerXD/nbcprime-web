@@ -20,7 +20,6 @@ export function AuthProvider({ children }) {
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  // api.js fires this when the session dies mid-session
   useEffect(() => {
     const onUnauth = () => setUser(null);
     window.addEventListener('nbc:unauthorized', onUnauth);
