@@ -15,25 +15,31 @@ const parseDuration = (str) => {
   return Number(m[1]) * { s: 1000, m: 60000, h: 3600000, d: 86400000 }[m[2].toLowerCase()];
 };
 
-// FIX: vercel.app public suffix hai -> api-x.vercel.app aur x.vercel.app SIBLINGS hain.
-// Host-only cookie doosre host pe nahi jaati, isliye dono ko cover karne ke liye
-// '.vercel.app' domain chahiye. Galat COOKIE_DOMAIN ho to ignore karo.
+// vercel.app / netlify.app etc PUBLIC SUFFIX hain -> unpe cookie scope karna galat hai.
+// Host-only cookie bhi XHR pe API host tak pahunchti hai, isliye host-only hi rakho.
+const PUBLIC_SUFFIXES = new Set([
+  'vercel.app', 'now.sh', 'netlify.app', 'pages.dev', 'onrender.com',
+  'fly.dev', 'herokuapp.com', 'web.app', 'firebaseapp.com', 'up.railway.app',
+]);
+
 export const cookieDomainFor = (req) => {
   const host = String(req?.hostname || req?.headers?.host || '').split(':')[0].toLowerCase();
   const configured = String(env.COOKIE_DOMAIN || '').trim().replace(/^\./, '');
 
-  if (configured && configured !== 'localhost') {
-    // sirf tab use karo jab request host se domain-match kare
-    if (host === configured || host.endsWith('.' + configured)) return '.' + configured;
-  }
-  if (host.endsWith('.vercel.app')) return '.vercel.app';
-  return undefined; // localhost / custom domain -> host-only
+  if (!configured || configured === 'localhost') return undefined;
+  if (PUBLIC_SUFFIXES.has(configured)) return undefined;      // <-- .vercel.app yahin rukta hai
+  if (host === configured || host.endsWith('.' + configured)) return '.' + configured;
+  return undefined;
 };
+
+// SameSite=None ke liye Secure MUST hai. Prod me frontend aur api alag hosts hain,
+// to browser ke liye request CROSS-SITE hai -> 'lax' cookie XHR pe drop ho jaati hai.
+const secureCookies = () => env.NODE_ENV === 'production' || env.COOKIE_SECURE;
 
 export const cookieOptions = (req) => ({
   httpOnly: true,
-  secure: env.COOKIE_SECURE,
-  sameSite: env.COOKIE_SECURE ? 'none' : 'lax',
+  secure: secureCookies(),
+  sameSite: secureCookies() ? 'none' : 'lax',
   domain: cookieDomainFor(req),
   maxAge: parseDuration(env.JWT_EXPIRES),
   path: '/',
