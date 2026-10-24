@@ -103,6 +103,7 @@ async function maybeCleanup() {
     await pool.query("delete from command_logs where created_at < now() - interval '90 days'");
     await pool.query("delete from audit_logs where created_at < now() - interval '180 days'");
     await pool.query('delete from cache where expires_at < now()');
+    await pool.query('delete from oauth_states where expires_at < now()');
   } catch (e) {
     console.error('[cleanup]', e.message);
   }
