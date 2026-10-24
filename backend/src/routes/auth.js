@@ -10,7 +10,15 @@ import { audit } from '../services/audit.js';
 const router = Router();
 const DISCORD_API = 'https://discord.com/api/v10';
 
-const stateCookie = { httpOnly: true, secure: env.COOKIE_SECURE, maxAge: 600000, sameSite: 'lax', path: '/' };
+const STATE_COOKIE = 'nbc_state';
+const stateCookieOpts = () => ({ httpOnly: true, secure: env.COOKIE_SECURE, maxAge: 600000, sameSite: 'lax', path: '/' });
+const stateClearOpts  = () => ({ httpOnly: true, secure: env.COOKIE_SECURE, sameSite: 'lax', path: '/' });
+
+const timingSafeEqualStr = (a, b) => {
+  if (!a || !b) return false;
+  const ba = Buffer.from(String(a)), bb = Buffer.from(String(b));
+  return ba.length === bb.length && crypto.timingSafeEqual(ba, bb);
+};
 
 router.get('/discord', (req, res) => {
   const state = crypto.randomBytes(16).toString('hex');
