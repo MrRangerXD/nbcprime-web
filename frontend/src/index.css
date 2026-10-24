@@ -7,44 +7,48 @@
   body {
     @apply bg-void text-white font-sans antialiased;
     background-image:
-      radial-gradient(60rem 40rem at 50% -10%, rgba(139,92,246,0.14), transparent 60%),
-      radial-gradient(40rem 30rem at 90% 10%, rgba(255,255,255,0.05), transparent 60%);
+      radial-gradient(55rem 38rem at 50% -12%, rgba(255,255,255,0.09), transparent 62%),
+      radial-gradient(40rem 28rem at 92% 4%, rgba(255,255,255,0.05), transparent 60%);
+    background-attachment: fixed;
   }
-  ::selection { @apply bg-accent/40; }
+  ::selection { background: rgba(255,255,255,0.22); }
   ::-webkit-scrollbar { width: 9px; height: 9px; }
-  ::-webkit-scrollbar-track { @apply bg-void; }
-  ::-webkit-scrollbar-thumb { @apply bg-edge rounded-full; }
-  ::-webkit-scrollbar-thumb:hover { @apply bg-muted/50; }
+  ::-webkit-scrollbar-track { background: #000; }
+  ::-webkit-scrollbar-thumb { background: #232323; border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: #3a3a3a; }
 }
 
 @layer components {
-  .card { @apply bg-panel/70 border border-edge rounded-2xl backdrop-blur-sm; }
-  .card-hover { @apply transition-all duration-300 hover:border-accent/40 hover:shadow-glow; }
-  .btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed; }
+  .card { @apply bg-panel/80 border border-edge rounded-2xl backdrop-blur-sm; }
+  .card-hover { @apply transition-all duration-300 hover:border-white/25 hover:shadow-glow; }
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed; }
   .btn-primary { @apply btn bg-white text-black hover:bg-white/90 hover:shadow-white; }
-  .btn-ghost { @apply btn border border-edge text-white/80 hover:text-white hover:border-white/30 hover:bg-white/5; }
-  .btn-danger { @apply btn bg-red-500/15 text-red-300 border border-red-500/30 hover:bg-red-500/25; }
-  .input { @apply w-full bg-surface border border-edge rounded-xl px-4 py-2.5 text-sm outline-none placeholder:text-muted/60 focus:border-accent/60 transition-colors; }
+  .btn-ghost { @apply btn border border-edge text-white/75 hover:text-white hover:border-white/30 hover:bg-white/5; }
+  .btn-danger { @apply btn border border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/20; }
+  .input { @apply w-full bg-surface border border-edge rounded-xl px-4 py-2.5 text-sm outline-none placeholder:text-dim focus:border-white/40 transition-colors; }
   .label { @apply block text-xs font-medium uppercase tracking-wider text-muted mb-1.5; }
-  .glow-text { text-shadow: 0 0 24px rgba(255,255,255,0.45); }
+  .mono { @apply font-mono tabular-nums; }
+  .glow-text { text-shadow: 0 0 28px rgba(255,255,255,0.35); }
+  .hairline { @apply border-t border-edge; }
   .grid-bg {
-    background-image: linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
-                      linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
-    background-size: 48px 48px;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.032) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.032) 1px, transparent 1px);
+    background-size: 52px 52px;
+  }
+  .noise::before {
+    content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .35;
+    background-image: radial-gradient(rgba(255,255,255,.05) 1px, transparent 1px);
+    background-size: 4px 4px;
   }
 }
 
-/* gradient headline — glow must NOT bleed through the transparent text */
 .text-gradient {
-  background-image: linear-gradient(100deg, #c4b5fd 0%, #f0abfc 45%, #a78bfa 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 0 26px rgba(139, 92, 246, 0.5));
+  background-image: linear-gradient(100deg, #ffffff 0%, #bdbdbd 50%, #ffffff 100%);
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent; -webkit-text-fill-color: transparent;
 }
 
-/* marquee */
 .marquee-mask {
   overflow: hidden;
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
