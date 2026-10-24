@@ -4,7 +4,7 @@ import { env } from './config/env.js';
 const { Pool } = pg;
 
 const poolConfig = {
-  max: env.DB_POOL_MAX || 8,
+  max: env.DB_POOL_MAX || 5,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 15000,
   query_timeout: env.DB_QUERY_TIMEOUT || 20000,
@@ -17,6 +17,8 @@ if (env.DB_SSL) poolConfig.ssl = { rejectUnauthorized: false };
 if (env.DB_STATEMENT_TIMEOUT > 0) poolConfig.statement_timeout = env.DB_STATEMENT_TIMEOUT;
 
 export const pool = new Pool(poolConfig);
+
+pool.on('error', (err) => console.error('[pg] idle client error:', err.message));
 
 export async function connectDB() {
   const client = await pool.connect();
