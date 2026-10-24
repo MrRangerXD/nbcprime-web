@@ -18,6 +18,7 @@ import ingestRoutes from './routes/ingest.js';
 import premiumRoutes from './routes/premium.js';
 
 const NO_AUTH_PREFIXES = ['/api/public', '/api/ingest'];
+const NO_AUTH_EXACT = ['/api/health', '/api/diag'];
 
 // FIX: sirf ek origin nahi — localhost + vercel previews bhi
 const isAllowedOrigin = (origin) => {
@@ -43,9 +44,16 @@ export function createApp() {
     origin: (origin, cb) => cb(null, isAllowedOrigin(origin)),
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'X-Ingest-Key'],
   }));
   app.use(express.json({ limit: '1mb' }));
+
+  // FIX: body-less POST pe req.body undefined hota hai -> destructuring crash (giveaways/admin)
+  app.use((req, _res, next) => {
+    if (req.body === undefined) req.body = {};
+    next();
+  });
+
   app.use(cookieParser());
   app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
@@ -53,7 +61,8 @@ export function createApp() {
   app.use('/api/auth', rateLimit({ windowMs: 60000, max: 60 }));
 
   app.use((req, res, next) => {
-    if (req.path === '/api/health' || NO_AUTH_PREFIXES.some((p) => req.path.startsWith(p))) return next();
+    if (NO_AUTH_EXACT.includes(req.path)) return next();
+    if (NO_AUTH_PREFIXES.some((p) => req.path.startsWith(p))) return next();
     return attachUser(req, res, next);
   });
 
