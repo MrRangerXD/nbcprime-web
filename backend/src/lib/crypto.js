@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { env } from '../config/env.js';
 
-const KEY = crypto.createHash('sha256').update(env.JWT_SECRET).digest();
+const KEY = crypto.createHash('sha256').update(String(env.JWT_SECRET || 'dev-secret')).digest();
 
 export function encrypt(text) {
   if (!text) return null;
