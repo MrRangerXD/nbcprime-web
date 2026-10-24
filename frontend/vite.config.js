@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://nbcprime-web.vercel.app',
+        target: 'https://api-nbcprime.vercel.app',   // FIX: pehle galat target tha
         changeOrigin: true,
         cookieDomainRewrite: 'localhost',
       },
