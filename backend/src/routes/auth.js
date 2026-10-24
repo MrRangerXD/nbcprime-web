@@ -3,7 +3,7 @@ import axios from 'axios';
 import crypto from 'node:crypto';
 import { env, adminIds, isOwner } from '../config/env.js';
 import { one, q } from '../db.js';
-import { signToken, cookieName, cookieOptions, cookieDomainFor, requireAuth } from '../middleware/auth.js';
+import { signToken, cookieName, cookieOptions, cookieDomainFor, secureCookies, requireAuth } from '../middleware/auth.js';
 import { encrypt } from '../lib/crypto.js';
 import { audit } from '../services/audit.js';
 
@@ -11,8 +11,8 @@ const router = Router();
 const DISCORD_API = 'https://discord.com/api/v10';
 
 const STATE_COOKIE = 'nbc_state';
-const stateCookieOpts = (req) => ({ httpOnly: true, secure: env.COOKIE_SECURE, maxAge: 600000, sameSite: 'lax', path: '/', domain: cookieDomainFor(req) });
-const stateClearOpts  = (req) => ({ httpOnly: true, secure: env.COOKIE_SECURE, sameSite: 'lax', path: '/', domain: cookieDomainFor(req) });
+const stateCookieOpts = (req) => ({ httpOnly: true, secure: secureCookies(), maxAge: 600000, sameSite: 'lax', path: '/', domain: cookieDomainFor(req) });
+const stateClearOpts  = (req) => ({ httpOnly: true, secure: secureCookies(), sameSite: 'lax', path: '/', domain: cookieDomainFor(req) });
 
 const timingSafeEqualStr = (a, b) => {
   if (!a || !b) return false;
