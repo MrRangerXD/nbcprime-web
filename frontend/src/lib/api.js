@@ -1,10 +1,8 @@
 import axios from 'axios';
 
-const RAW = import.meta.env.VITE_API_URL;
-
-if (!RAW) console.warn('[api] VITE_API_URL is not set — same-origin fallback (vite dev proxy).');
-
-export const API = (RAW || '').replace(/\/+$/, '');
+const RAW = import.meta.env.VITE_API_URL || '';
+export const API = RAW.replace(/\/+$/, '');
+export const loginUrl = `${API}/api/auth/discord`;
 
 export const api = axios.create({
   baseURL: API || undefined,
@@ -17,13 +15,9 @@ api.interceptors.response.use(
   (err) => {
     const status = err.response?.status;
     const message = err.response?.data?.error || err.message || 'request_failed';
-
     if (status === 401 && !window.location.pathname.startsWith('/login')) {
       window.dispatchEvent(new CustomEvent('nbc:unauthorized'));
     }
-
-    return Promise.reject(Object.assign(new Error(message), { status }));
+    return Promise.reject(Object.assign(new Error(message), { status, data: err.response?.data }));
   }
 );
-
-export const loginUrl = `${API}/api/auth/discord`;
