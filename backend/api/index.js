@@ -6,53 +6,86 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 
 let app = null;
 let pool = null;
-let connectDB = null;
 let env = {};
 let envReport = {};
 let ready = null;
 let bootError = null;
+let schemaError = null;
+let retryAfter = 0;
 let lastCleanup = Date.now();
+
+const RETRY_MS = 15000;
+
+// FIX: har step ka apna label -> error me exact file dikhegi, generic 'load/db' nahi
+async function step(label, fn) {
+  try {
+    return await fn();
+  } catch (e) {
+    const err = new Error(e?.message || String(e));
+    err.step = label;
+    err.stack = e?.stack;
+    throw err;
+  }
+}
 
 async function loadEnv() {
   if (envReport && Object.keys(envReport).length) return;
-  const m = await import('../src/config/env.js');
+  const m = await step('import:config/env.js', () => import('../src/config/env.js'));
   env = m.env;
   envReport = m.envReport;
 }
 
 async function boot() {
+  bootError = null;
+
   try {
     await loadEnv();
     const [appMod, dbMod] = await Promise.all([
-      import('../src/app.js'),
-      import('../src/db.js'),
+      step('import:app.js', () => import('../src/app.js')),
+      step('import:db.js', () => import('../src/db.js')),
     ]);
-    app = appMod.createApp();
+    app = await step('createApp', async () => appMod.createApp());
     pool = dbMod.pool;
-    connectDB = dbMod.connectDB;
-    await connectDB();
+    await step('db:connect', () => dbMod.connectDB());
   } catch (e) {
-    bootError = 'load/db: ' + (e?.message || e);
-    console.error('[boot]', bootError, e?.stack || '');
+    bootError = (e?.step ? e.step + ': ' : '') + (e?.message || e);
+    retryAfter = Date.now() + RETRY_MS;
+    console.error('[boot]', bootError);
+    console.error('[boot:stack]', e?.stack || '');
     return; // health chalta rahega
   }
 
+  // FIX: schema fail ho to bootError alag rakhna, warna DB connected hone par bhi db:false dikhta hai
   try {
     const dir = path.join(here, '..', 'src');
     const files = (await fs.readdir(dir)).filter((f) => f.endsWith('.sql'));
     files.sort((a, b) => (a === 'schema.sql' ? -1 : b === 'schema.sql' ? 1 : a.localeCompare(b)));
+    const errs = [];
     for (const f of files) {
-      try { await pool.query(await fs.readFile(path.join(dir, f), 'utf8')); }
-      catch (e) { bootError = 'sql:' + f + ' ' + e.message; console.error('[boot]', bootError); }
+      try {
+        await pool.query(await fs.readFile(path.join(dir, f), 'utf8'));
+      } catch (e) {
+        errs.push(f + ': ' + e.message);
+        console.error('[boot:schema]', f, e.message);
+      }
     }
-    console.log('[db] schema verified');
+    schemaError = errs.length ? errs.join(' | ') : null;
+    if (!schemaError) console.log('[db] schema verified');
   } catch (e) {
-    bootError = 'schema_read: ' + (e?.message || e);
+    schemaError = 'schema_read: ' + (e?.message || e);
+    console.error('[boot]', schemaError);
   }
 }
 
+// FIX: fail hone par 15s baad dobara try kare, warna ek cold start me permanently dead
 function ensureReady() {
-  if (!ready) ready = boot();
+  if (app) return Promise.resolve();
+  if (bootError && Date.now() < retryAfter) return Promise.resolve();
+  if (!ready) {
+    ready = boot().finally(() => {
+      ready = null;
+    });
+  }
   return ready;
 }
 
@@ -64,31 +97,65 @@ async function maybeCleanup() {
     await pool.query("delete from command_logs where created_at < now() - interval '90 days'");
     await pool.query("delete from audit_logs where created_at < now() - interval '180 days'");
     await pool.query('delete from cache where expires_at < now()');
-  } catch (e) { console.error('[cleanup]', e.message); }
+  } catch (e) {
+    console.error('[cleanup]', e.message);
+  }
+}
+
+// Vercel rewrite -> /api/index ko normalise karo (ek hi baar)
+function normalise(req) {
+  const url = req.url || '/';
+  if (url.startsWith('/api/index')) {
+    req.url = url.slice('/api/index'.length) || '/';
+  }
+  return (req.url || '/').split('?')[0];
 }
 
 export default async function handler(req, res) {
-  // Vercel rewrite -> /api/index  ko normalise karo (dono form match karo)
-  const raw = (req.url || '/').split('?')[0];
-  const pathname = raw.startsWith('/api/index')
-    ? (raw.slice('/api/index'.length) || '/')
-    : raw;
+  const fullUrl = req.url || '/';
+  const pathname = normalise(req);
+  const deep = fullUrl.includes('deep=1');
 
   // health + diag kabhi DB pe depend na karein
-  if (raw === '/api/health' || pathname === '/api/health') {
-    return res.json({ ok: true, ts: Date.now(), db: !bootError, boot: bootError || null });
+  if (pathname === '/api/health') {
+    let dbOk = Boolean(pool) && !bootError;
+    if (deep && dbOk) {
+      try {
+        await pool.query('select 1');
+      } catch (e) {
+        dbOk = false;
+        console.error('[health] ping failed:', e.message);
+      }
+    }
+    const ok = !bootError && dbOk;
+    return res.status(ok ? 200 : 503).json({
+      ok,
+      ts: Date.now(),
+      db: dbOk,
+      boot: bootError,
+      schema: schemaError,
+    });
   }
 
-  if (raw === '/api/diag' || pathname === '/api/diag') {
+  if (pathname === '/api/diag') {
     try {
       await loadEnv();
     } catch (e) {
-      return res.status(500).json({ ok: false, error: 'env_import_failed', detail: e.message, stack: e.stack });
+      return res.status(500).json({
+        ok: false,
+        error: 'env_import_failed',
+        detail: e.message,
+        stack: e.stack,
+      });
     }
     return res.json({
-      ok: true,
+      ok: !bootError,
       ts: Date.now(),
       bootError,
+      schemaError,
+      appLoaded: Boolean(app),
+      poolReady: Boolean(pool),
+      retryIn: bootError ? Math.max(0, retryAfter - Date.now()) : 0,
       env: envReport,
       hasDatabaseUrl: Boolean(env.DATABASE_URL),
     });
@@ -97,23 +164,29 @@ export default async function handler(req, res) {
   try {
     await ensureReady();
   } catch (err) {
-    return res.status(500).json({ ok: false, error: 'boot_failed', detail: String(err?.message || err) });
+    return res.status(500).json({
+      ok: false,
+      error: 'boot_failed',
+      detail: String(err?.message || err),
+    });
   }
 
   if (!app) {
-    return res.status(500).json({ ok: false, error: 'app_not_loaded', detail: bootError });
+    return res.status(503).json({ ok: false, error: 'app_not_loaded', detail: bootError });
   }
 
   maybeCleanup().catch(() => {});
-
-  if (req.url.startsWith('/api/index')) req.url = req.url.slice('/api/index'.length) || '/';
 
   try {
     return await app(req, res);
   } catch (err) {
     console.error('[handler]', err);
     if (!res.headersSent) {
-      return res.status(500).json({ ok: false, error: 'internal_error', detail: String(err?.message || err) });
+      return res.status(500).json({
+        ok: false,
+        error: 'internal_error',
+        detail: String(err?.message || err),
+      });
     }
   }
 }
