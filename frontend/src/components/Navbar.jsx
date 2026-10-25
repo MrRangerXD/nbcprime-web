@@ -19,6 +19,7 @@ const links = [
 export default function Navbar() {
   const { user, login, logout } = useAuth();
   const [open, setOpen] = useState(false);
+  const [invite, setInvite] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const { pathname } = useLocation();
 
@@ -56,6 +57,7 @@ export default function Navbar() {
         <div className="ml-auto hidden items-center gap-2 lg:flex">
           {user ? (
             <>
+              <button onClick={() => setInvite(true)} className="btn-ghost">Invite bot</button>
               <Link to="/dashboard" className="btn-ghost">
                 <LayoutDashboard size={15} /> Dashboard
               </Link>
@@ -100,6 +102,7 @@ export default function Navbar() {
             )}
           </div>
         </div>
+      {invite && <InviteBotModal open={invite} onClose={() => setInvite(false)} />}
       )}
     </header>
   );
