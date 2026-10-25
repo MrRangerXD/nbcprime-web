@@ -1,3 +1,4 @@
+import { MARQUEE_COMMANDS, TOTAL_COMMANDS, TOTAL_SLASH } from '../lib/commands';
 // Bot ke actual command set ka mirror — CommandExplorer isko use karta hai.
 export const COMMANDS = [
   // Free
@@ -56,3 +57,6 @@ export const COMMANDS = [
 ];
 
 export const CATEGORIES = [...new Set(COMMANDS.map((c) => c.cat))];
+export const TOTAL_COMMANDS = COMMANDS.length;
+export const TOTAL_SLASH = COMMANDS.length; // or your real slash-variant count
+export const MARQUEE_COMMANDS = COMMANDS.slice(0, 20).map((c) => c.name);
