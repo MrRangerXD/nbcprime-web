@@ -21,6 +21,8 @@ import ServerDetail from './pages/dash/ServerDetail';
 import Giveaways from './pages/dash/Giveaways';
 import Premium from './pages/dash/Premium';
 import Profile from './pages/dash/Profile';
+import Customization from './pages/dash/Customization';
+import Commands from './pages/dash/Commands';
 import Admin from './pages/admin/Admin';
 
 export default function App() {
@@ -43,6 +45,8 @@ export default function App() {
 
         <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
           <Route index element={<Overview />} />
+          <Route path="customization" element={<Customization />} />
+          <Route path="commands" element={<Commands />} />
           <Route path="top-users" element={<Leaderboard scope="users" />} />
           <Route path="top-servers" element={<Leaderboard scope="servers" />} />
           <Route path="servers" element={<Servers />} />
