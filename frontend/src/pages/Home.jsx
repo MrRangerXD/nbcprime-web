@@ -144,10 +144,6 @@ export default function Home() {
         </div>
       </section>
 
-      <div className="border-y border-edge bg-panel/40">
-        <CommandExplorer />
-      </div>
-
       <section className="mx-auto max-w-7xl px-5 py-24">
         <h2 className="font-display text-3xl font-bold md:text-4xl">Three steps. That's it.</h2>
         <p className="mt-3 text-muted">No config files, no self-hosting, no dependencies.</p>
