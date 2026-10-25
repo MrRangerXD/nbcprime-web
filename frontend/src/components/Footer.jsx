@@ -3,7 +3,7 @@ import { Github, Youtube, Instagram, MessageCircle } from 'lucide-react';
 import Logo from './Logo';
 
 const SUPPORT = 'https://discord.gg/nbc-prime-1256250708190036019';
-const INVITE = 'https://discord.com/oauth2/authorize?client_id=1481283105837940901&permissions=8&integration_type=0&scope=bot+applications.commands';
+const INVITE = 'https://discord.com/oauth2/authorize?client_id=1563885964567257128&permissions=8&integration_type=0&scope=bot+applications.commands';
 const TUTORIAL = 'https://youtu.be/EuRhJxiWtks';
 
 const cols = [

@@ -5,7 +5,7 @@ export const BOTS = [
     id: 'nuke',
     name: 'NBCPrime',
     description: 'Main nuke + utility bot. Required for every dashboard action.',
-    clientId: '1481283105837940901',
+    clientId: '1563885964567257128',
   },
   {
     id: 'backup',
