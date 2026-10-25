@@ -2,28 +2,41 @@ import { NavLink, Link, Outlet } from 'react-router-dom';
 import { useState } from 'react';
 import {
   LayoutDashboard, Trophy, Server, Gift, User as UserIcon, Shield, LogOut,
-  Menu, X, BarChart3, Sparkles, ChevronRight, Home,
+  Menu, X, BarChart3, Sparkles, ChevronRight, Home, SlidersHorizontal,
+  Terminal, Bot,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { avatarUrl } from '../lib/format';
 import { Badge } from './ui';
 import Logo from './Logo';
+import InviteBotModal from './InviteBotModal';
 
-const nav = [
+const primaryNav = [
   { to: '/dashboard', label: 'Overview', icon: LayoutDashboard, end: true },
+  { to: '/dashboard/customization', label: 'Customization', icon: SlidersHorizontal },
+  { to: '/dashboard/commands', label: 'Command List', icon: Terminal },
+];
+
+const manageNav = [
   { to: '/dashboard/top-users', label: 'Top Users', icon: Trophy },
   { to: '/dashboard/top-servers', label: 'Top Servers', icon: BarChart3 },
   { to: '/dashboard/servers', label: 'Servers', icon: Server },
   { to: '/dashboard/giveaways', label: 'Giveaways', icon: Gift },
-  { to: '/dashboard/premium', label: 'Get Premium', icon: Sparkles },
   { to: '/dashboard/profile', label: 'Profile', icon: UserIcon },
 ];
+
+const navClass = ({ isActive }) =>
+  'flex w-full items-center gap-3 rounded-xl border px-3.5 py-2.5 text-sm transition-all ' +
+  (isActive
+    ? 'border-white/15 bg-white/10 text-white'
+    : 'border-transparent text-muted hover:bg-white/5 hover:text-white');
 
 export default function DashboardLayout() {
   const { user, logout } = useAuth();
   const [open, setOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
-  const items = [...nav];
+  const items = [...manageNav];
   if (user?.isAdmin) items.push({ to: '/dashboard/admin', label: 'Admin Panel', icon: Shield });
 
   return (
@@ -40,23 +53,33 @@ export default function DashboardLayout() {
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-          {items.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              onClick={() => setOpen(false)}
-              className={({ isActive }) =>
-                'flex items-center gap-3 rounded-xl border px-3.5 py-2.5 text-sm transition-all ' +
-                (isActive ? 'border-white/15 bg-white/10 text-white' : 'border-transparent text-muted hover:bg-white/5 hover:text-white')
-              }
-            >
+          <p className="px-2 pb-1 pt-2 font-mono text-[10px] uppercase tracking-[0.2em] text-dim">Navigation</p>
+
+          {primaryNav.map((item) => (
+            <NavLink key={item.to} to={item.to} end={item.end} onClick={() => setOpen(false)} className={navClass}>
               <item.icon size={17} /> {item.label}
-              {item.to === '/dashboard/premium' && user && !user.isPremium && (
-                <span className="ml-auto rounded-md bg-white px-1.5 py-0.5 text-[10px] font-bold text-black">NEW</span>
-              )}
             </NavLink>
           ))}
+
+          <button onClick={() => { setInviteOpen(true); setOpen(false); }} className={navClass({ isActive: false })}>
+            <Bot size={17} /> Invite Bot
+          </button>
+
+          <NavLink to="/dashboard/premium" onClick={() => setOpen(false)} className={navClass}>
+            <Sparkles size={17} /> Premium
+            {user && !user.isPremium && (
+              <span className="ml-auto rounded-md bg-white px-1.5 py-0.5 text-[10px] font-bold text-black">NEW</span>
+            )}
+          </NavLink>
+
+          <p className="px-2 pb-1 pt-4 font-mono text-[10px] uppercase tracking-[0.2em] text-dim">Manage</p>
+
+          {items.map((item) => (
+            <NavLink key={item.to} to={item.to} onClick={() => setOpen(false)} className={navClass}>
+              <item.icon size={17} /> {item.label}
+            </NavLink>
+          ))}
+
           <div className="hairline my-2" />
           <Link to="/" className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm text-muted hover:bg-white/5 hover:text-white">
             <Home size={17} /> Back to site
@@ -94,6 +117,8 @@ export default function DashboardLayout() {
         </header>
         <main className="mx-auto max-w-7xl p-5 lg:p-8"><Outlet /></main>
       </div>
+
+      <InviteBotModal open={inviteOpen} onClose={() => setInviteOpen(false)} />
     </div>
   );
 }
