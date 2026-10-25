@@ -1,8 +1,7 @@
 import { Router } from 'express';
 import { env } from '../config/env.js';
 import { one } from '../db.js';
-import { DEFAULT_NUKE_CONFIG, pickNukeConfig } from '../lib/nukeDefaults.js';
-import { pickOverrides } from '../lib/nukeDefaults.js';
+import { BOT_DEFAULTS, pickOverrides } from '../lib/nukeDefaults.js';
 
 const router = Router();
 
@@ -19,8 +18,8 @@ router.use((req, res, next) => {
 router.get('/nuke-config/:discordId', async (req, res) => {
   const id = String(req.params.discordId || '').trim();
   if (!/^\d{5,25}$/.test(id)) {
-    return res.json({ ok: true, data: DEFAULT_NUKE_CONFIG, isDefault: true });
-  }
+    return res.json({ ok: true, data: BOT_DEFAULTS, isDefault: true });
+   }
 
   try {
     const saved = await one('select * from nuke_configs where discord_id = $1', [id]);
