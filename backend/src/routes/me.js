@@ -1,10 +1,42 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
-import { many, scalar } from '../db.js';
+import { many, scalar, one, q } from '../db.js';
 import { BOT_DEFAULTS, sanitizeOverrides, pickOverrides } from '../lib/nukeDefaults.js';
 
 const router = Router();
 router.use(requireAuth);
+
+// FIX: async handler ka rejection Express 4 me error middleware tak nahi pahunchta,
+// request hang ho jaati thi (DB down hone par). Har handler wrap me chalao.
+const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+
+// nuke_configs ke columns snake_case hain, par API contract camelCase hai.
+const COLUMN_TO_KEY = {
+  server_name: 'serverName',
+  custom_channel_name: 'customChannelName',
+  channel_count: 'channelCount',
+  spam_message: 'spamMessage',
+  server_description: 'serverDescription',
+  server_icon_url: 'serverIconUrl',
+};
+
+// FIX: pickOverrides() camelCase keys padhta hai, lekin `select *` snake_case deta hai.
+// Pehle ye har baar {} return karta tha -> saved config kabhi UI me nahi dikhta tha,
+// aur isDefault false hone ki wajah se form "Custom" badge ke saath khaali dikhta tha.
+const toConfig = (row) => {
+  if (!row) return {};
+  const camel = {};
+  for (const [col, key] of Object.entries(COLUMN_TO_KEY)) {
+    const v = row[col];
+    if (v !== null && v !== undefined) camel[key] = v;
+  }
+  const cfg = pickOverrides(camel);
+
+  // Alias: Overview.jsx aur DiscordPreview.jsx `channelName` padhte hain.
+  // Khaali ho to bot ka default dikhao, warna blank channel render hota hai.
+  cfg.channelName = cfg.customChannelName || BOT_DEFAULTS.customChannelName;
+  return cfg;
+};
 
 // FIX: poora row (encrypted access_token/refresh_token) leak ho raha tha
 router.get('/', (req, res) => {
@@ -12,7 +44,7 @@ router.get('/', (req, res) => {
   res.json({ ok: true, user });
 });
 
-router.get('/stats', async (req, res) => {
+router.get('/stats', wrap(async (req, res) => {
   const uid = req.user.discordId;
 
   const total = await scalar('select count(*)::int from command_logs where user_id = $1', [uid]);
@@ -38,9 +70,9 @@ router.get('/stats', async (req, res) => {
       adminGuildCount: (req.user.adminGuilds || []).length,
     },
   });
-});
+}));
 
-router.get('/guilds', async (req, res) => {
+router.get('/guilds', wrap(async (req, res) => {
   const ids = req.user.adminGuilds || [];
   if (!ids.length) return res.json({ ok: true, data: [] });
   const rows = await many(
@@ -48,17 +80,17 @@ router.get('/guilds', async (req, res) => {
     [ids]
   );
   res.json({ ok: true, data: rows });
-});
+}));
 
-router.get('/nuke-config', async (req, res) => {
+router.get('/nuke-config', wrap(async (req, res) => {
   const saved = await one('select * from nuke_configs where discord_id = $1', [req.user.discordId]);
   res.json({
     ok: true,
-    data: { config: saved ? pickOverrides(saved) : {}, defaults: BOT_DEFAULTS, isDefault: !saved },
+    data: { config: toConfig(saved), defaults: BOT_DEFAULTS, isDefault: !saved },
   });
-});
+}));
 
-router.patch('/nuke-config', async (req, res) => {
+router.patch('/nuke-config', wrap(async (req, res) => {
   const o = sanitizeOverrides(req.body);
 
   const row = await one(
@@ -79,12 +111,12 @@ router.patch('/nuke-config', async (req, res) => {
      o.spamMessage, o.serverDescription, o.serverIconUrl]
   );
 
-  res.json({ ok: true, data: { config: pickOverrides(row), defaults: BOT_DEFAULTS, isDefault: false } });
-});
+  res.json({ ok: true, data: { config: toConfig(row), defaults: BOT_DEFAULTS, isDefault: false } });
+}));
 
-router.delete('/nuke-config', async (req, res) => {
+router.delete('/nuke-config', wrap(async (req, res) => {
   await q('delete from nuke_configs where discord_id = $1', [req.user.discordId]);
   res.json({ ok: true, data: { config: {}, defaults: BOT_DEFAULTS, isDefault: true } });
-});
+}));
 
 export default router;
