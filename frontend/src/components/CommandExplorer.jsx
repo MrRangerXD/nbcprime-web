@@ -19,11 +19,12 @@ export default function CommandExplorer({ compact = false }) {
     });
   }, [query, cat, tier]);
 
-  const copy = (name) => {
-    navigator.clipboard?.writeText(`>${name}`).then(() => {
+  const copy = async (name) => {
+    try {
+      await writeClipboard(`>${name}`);
       setCopied(name);
       setTimeout(() => setCopied(''), 1200);
-    });
+    } catch { /* clipboard blocked */ }
   };
 
   return (
