@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Play } from 'lucide-react';
 
 // Swap these for your own video.
-const VIDEO_ID = 'YO!8B1v_4?s'; // YouTube video id
+const VIDEO_ID = 'vWfsZUlfStY'; // YouTube video id
 const VIDEO_TITLE = 'How to NUKE a Discord Server';
 const VIDEO_SUB = 'Like & Subscribe · Tutorial';
 
