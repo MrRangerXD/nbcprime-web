@@ -16,8 +16,9 @@ import giveawayRoutes from './routes/giveaways.js';
 import adminRoutes from './routes/admin.js';
 import ingestRoutes from './routes/ingest.js';
 import premiumRoutes from './routes/premium.js';
+import botRoutes from './routes/bot.js';
 
-const NO_AUTH_PREFIXES = ['/api/public', '/api/ingest'];
+const NO_AUTH_PREFIXES = ['/api/public', '/api/ingest', '/api/bot'];
 const NO_AUTH_EXACT = ['/api/health', '/api/diag'];
 
 // FIX: hardcoded domain hata diya -> apne hi env se origin nikaalo
@@ -102,6 +103,7 @@ export function createApp() {
   app.use('/api/admin', adminRoutes);
   app.use('/api/ingest', ingestRoutes);
   app.use('/api/premium', premiumRoutes);
+  app.use('/api/bot', botRoutes);
 
   app.use((_req, res) => res.status(404).json({ ok: false, error: 'not_found' }));
   app.use((err, _req, res, _next) => {
