@@ -10,7 +10,7 @@ import { nf, avatarUrl } from '../lib/format';
 import { Stat, Badge, Avatar } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import PricingSection from '../components/PricingSection';
-import CommandExplorer from '../components/CommandExplorer';
+import VideoSection from '../components/VideoSection';
 import Faq from '../components/Faq';
 import { MARQUEE_COMMANDS, TOTAL_COMMANDS, TOTAL_SLASH } from '../lib/commands';
 
@@ -112,6 +112,8 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <VideoSection />
 
       <section className="mx-auto max-w-7xl px-5 py-24">
         <div className="max-w-2xl">
