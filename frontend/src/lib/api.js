@@ -1,9 +1,6 @@
 import axios from 'axios';
 
 const RAW = import.meta.env.VITE_API_URL || '';
-if (import.meta.env.PROD && !RAW) {
-  console.warn('[api] VITE_API_URL missing — login will proxy via the frontend host and the OAuth state cookie will land on the wrong domain.');
-}
 export const API = RAW.replace(/\/+$/, '');
 export const loginUrl = `${API}/api/auth/discord`;
 

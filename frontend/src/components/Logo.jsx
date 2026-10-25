@@ -1,5 +1,7 @@
-export default function Logo({ size = 30, withText = true, className = '' }) {
-  return (
+import { Link } from 'react-router-dom';
+
+export default function Logo({ size = 30, withText = true, to = '/', className = '' }) {
+  const inner = (
     <span className={'flex items-center gap-2.5 ' + className}>
       <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true">
         <rect width="64" height="64" rx="14" fill="#000" stroke="#262626" />
@@ -12,4 +14,6 @@ export default function Logo({ size = 30, withText = true, className = '' }) {
       )}
     </span>
   );
+
+  return to ? <Link to={to}>{inner}</Link> : inner;
 }

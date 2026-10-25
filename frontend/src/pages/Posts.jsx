@@ -1,46 +1,66 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Search } from 'lucide-react';
 import { api } from '../lib/api';
-import { Loader, Empty, Badge } from '../components/ui';
-import { timeAgo } from '../lib/format';
+import PostCard from '../components/PostCard';
+import { Loader, Empty } from '../components/ui';
 
 export default function Posts({ type }) {
-  const [posts, setPosts] = useState(null);
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState('');
 
   useEffect(() => {
-    setPosts(null);
-    api.get('/api/public/posts?type=' + type).then((d) => setPosts(d.data)).catch(() => setPosts([]));
+    let alive = true;
+    setLoading(true);
+    api.get(`/api/public/posts?type=${type}&limit=50`)
+      .then((d) => { if (alive) setPosts(Array.isArray(d?.data) ? d.data : []); })
+      .catch(() => { if (alive) setPosts([]); })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
   }, [type]);
 
-  const title = type === 'news' ? 'News' : 'Blogs';
+  const list = posts.filter(
+    (p) =>
+      !query ||
+      p.title?.toLowerCase().includes(query.toLowerCase()) ||
+      p.excerpt?.toLowerCase().includes(query.toLowerCase())
+  );
+
+  const label = type === 'news' ? 'News' : 'Blogs';
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-16">
-      <h1 className="font-display text-4xl font-bold glow-text">{title}</h1>
-      <p className="mt-3 text-muted">
-        {type === 'news' ? 'Updates and announcements from the NBCPrime team.' : 'Guides, deep dives and raid strategy.'}
-      </p>
+    <div className="mx-auto max-w-7xl px-5 py-16">
+      <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="mb-2 font-mono text-xs uppercase tracking-[0.2em] text-muted">{label}</p>
+          <h1 className="font-display text-4xl font-bold">
+            {type === 'news' ? 'Latest updates' : 'Guides & articles'}
+          </h1>
+          <p className="mt-3 max-w-lg text-sm text-muted">
+            {type === 'news' ? 'Product updates and announcements.' : 'Nuke strategies, tips and tutorials.'}
+          </p>
+        </div>
 
-      <div className="mt-10">
-        {posts === null && <Loader />}
-        {posts && posts.length === 0 && <Empty title="Nothing published yet" sub="Check back soon." />}
-        <div className="grid gap-4 md:grid-cols-2">
-          {posts && posts.map((p) => (
-            <Link key={p._id} to={'/post/' + p.slug} className="card card-hover overflow-hidden">
-              {p.coverImage && <img src={p.coverImage} alt="" className="h-44 w-full object-cover" />}
-              <div className="p-5">
-                <div className="flex items-center gap-2">
-                  <Badge tone={type === 'news' ? 'amber' : 'purple'}>{type}</Badge>
-                  <span className="text-xs text-muted">{timeAgo(p.publishedAt)}</span>
-                </div>
-                <h2 className="mt-3 font-display text-lg font-semibold">{p.title}</h2>
-                {p.excerpt && <p className="mt-2 text-sm text-muted">{p.excerpt}</p>}
-                <p className="mt-4 text-xs text-muted">{p.authorName} - {p.views} views</p>
-              </div>
-            </Link>
-          ))}
+        <div className="relative w-full sm:w-72">
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-dim" />
+          <input
+            className="input pl-10"
+            placeholder="Search..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
         </div>
       </div>
+
+      {loading ? (
+        <Loader label={`Loading ${label.toLowerCase()}`} />
+      ) : list.length === 0 ? (
+        <Empty title={`No ${label.toLowerCase()} yet`} sub="Check back soon." />
+      ) : (
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {list.map((p) => <PostCard key={p.id || p.slug} post={p} />)}
+        </div>
+      )}
     </div>
   );
 }

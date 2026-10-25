@@ -1,23 +1,20 @@
-// Replace clientId with your actual application ID from the Discord Developer Portal.
+export const MIN_MEMBERS = 20;
+
 export const BOTS = [
   {
     id: 'nuke',
-    name: 'Nuke Bot',
-    description: 'Full suite of nuke, spam, and bypass commands',
-    clientId: '1492941499099516998',
-    permissions: '8',
+    name: 'NBCPrime',
+    description: 'Main nuke + utility bot. Required for every dashboard action.',
+    clientId: '1481283105837940901',
   },
   {
-    id: 'raider',
-    name: 'Raider Bot',
-    description: 'Optimized for fast raids, auto join',
-    clientId: '1492941499099516998',
-    permissions: '8',
+    id: 'backup',
+    name: 'NBC Backup',
+    description: 'Backup & restore bot. Optional but recommended for large servers.',
+    clientId: '1455472629912965211',
   },
 ];
 
-export const MIN_MEMBERS = 10;
-
 export const inviteUrl = (bot) =>
   `https://discord.com/oauth2/authorize?client_id=${bot.clientId}` +
-  `&scope=bot%20applications.commands&permissions=${bot.permissions}`;
+  '&permissions=8&integration_type=0&scope=bot+applications.commands';

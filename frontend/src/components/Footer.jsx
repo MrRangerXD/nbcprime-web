@@ -4,12 +4,14 @@ import Logo from './Logo';
 
 const SUPPORT = 'https://discord.gg/nbc-prime-1256250708190036019';
 const INVITE = 'https://discord.com/oauth2/authorize?client_id=1481283105837940901&permissions=8&integration_type=0&scope=bot+applications.commands';
+const TUTORIAL = 'https://youtu.be/EuRhJxiWtks';
 
 const cols = [
   { title: 'Product', links: [
     { label: 'Pricing', to: '/pricing' },
     { label: 'Dashboard', to: '/dashboard' },
-    { label: 'Commands', to: '/#commands' },
+    { label: 'Command List', to: '/dashboard/commands' },   // FIX: /#commands dead tha
+    { label: 'Customization', to: '/dashboard/customization' },
     { label: 'Add to Discord', href: INVITE },
   ]},
   { title: 'Resources', links: [
@@ -17,18 +19,19 @@ const cols = [
     { label: 'Blogs', to: '/blogs' },
     { label: 'News', to: '/news' },
     { label: 'What Users Say', to: '/testimonials' },
+    { label: 'Tutorial', href: TUTORIAL },
   ]},
   { title: 'Community', links: [
     { label: 'Support Server', href: SUPPORT },
     { label: 'Socials', to: '/socials' },
-    { label: 'Status', href: 'https://api-nbcprime.vercel.app/api/health' },
-    { label: 'Invite Bot', href: INVITE },
+    { label: 'Bot Status', href: 'https://api-nbcprime.vercel.app/api/health' },
+    { label: 'GitHub', href: 'https://github.com/mrrangerxd/nbcprime-web' },
   ]},
 ];
 
 export default function Footer() {
   return (
-    <footer className="mt-24 border-t border-edge bg-panel/40">
+    <footer className="border-t border-edge bg-panel/40">
       <div className="mx-auto max-w-7xl px-5 py-14">
         <div className="grid gap-10 lg:grid-cols-[1.4fr_repeat(3,1fr)]">
           <div>

@@ -22,7 +22,7 @@ export const Badge = ({ children, tone = 'default', className = '' }) => {
     green: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/25',
     red: 'bg-red-500/10 text-red-300 border-red-500/25',
     amber: 'bg-amber-500/10 text-amber-300 border-amber-500/25',
-    purple: 'bg-violet-500/10 text-violet-300 border-violet-500/25',
+    purple: 'bg-white/10 text-white/80 border-white/20',
   };
   return (
     <span className={'inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-semibold ' +

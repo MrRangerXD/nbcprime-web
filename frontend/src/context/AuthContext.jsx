@@ -26,13 +26,13 @@ export function AuthProvider({ children }) {
     return () => window.removeEventListener('nbc:unauthorized', onUnauth);
   }, []);
 
-  const login = () => { window.location.href = loginUrl; };
+  const login = useCallback(() => { window.location.href = loginUrl; }, []);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     await api.post('/api/auth/logout').catch(() => {});
     setUser(null);
     window.location.href = '/';
-  };
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, loading, login, logout, refresh }}>

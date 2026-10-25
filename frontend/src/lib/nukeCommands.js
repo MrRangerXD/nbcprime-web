@@ -1,44 +1,71 @@
+// EXACT mirror of bot help.py (Free + Premium). Antinuke wale fake commands hata diye.
 export const COMMANDS = [
-  // ---------- Free ----------
-  { name: '$nuke', tier: 'free', desc: 'Nuke the server (fast).', args: 'None', req: 'None' },
-  { name: '$mass_ban', tier: 'free', desc: 'Ban all members.', req: 'Bot must have a higher role.' },
-  { name: '$channel_spam', tier: 'free', desc: 'Spam 30 - 50 channels.' },
-  { name: '$channel_rename', tier: 'free', desc: 'Rename all channels.' },
-  { name: '$role_spam', tier: 'free', desc: 'Spam 50 roles.' },
-  { name: '$role_delete', tier: 'free', desc: 'Delete all roles.' },
-  { name: '$nsfw_all', tier: 'free', desc: 'Mark all channels as NSFW.' },
-  { name: '$unnsfw_all', tier: 'free', desc: 'Remove NSFW flags from all channels.' },
-  { name: '$webhooks', tier: 'free', desc: 'List all webhooks in the server.' },
-  { name: '$spamwebhook', tier: 'free', desc: 'Spam all server webhooks.' },
-  { name: '$emoji_spam', tier: 'free', desc: 'Spam 50 emojis.' },
-  { name: '$emoji_delete', tier: 'free', desc: 'Delete all emoji.' },
-  { name: '$create_sound', tier: 'free', desc: 'Create sound.' },
-  { name: '$sticker_spam', tier: 'free', desc: 'Create 30 new stickers.' },
-  { name: '$sticker_delete', tier: 'free', desc: 'Remove all stickers.' },
-  { name: '$event_spam', tier: 'free', desc: 'Spam max 5 events.' },
-  { name: '$event_delete', tier: 'free', desc: 'Delete all events.' },
-  { name: '$perm', tier: 'free', desc: 'Create a role with the highest permissions.' },
-  { name: '$fuck_chat', tier: 'free', desc: 'Block all words using automod.' },
-  { name: '$server_lockdown', tier: 'free', desc: 'Lock all channels.' },
-  { name: '$ping', tier: 'free', desc: 'Get bot ping.' },
-  { name: '$stats', tier: 'free', desc: 'Show the number of servers nuked.' },
-  { name: '$top', tier: 'free', desc: 'Top 10 raiders.' },
+  // ---------- FREE ----------
+  { name: '!nuke', tier: 'free', cat: 'Destruction', desc: 'Wipes all server channels and roles for a fresh start.', req: 'Administrator' },
+  { name: '!backup', tier: 'free', cat: 'Management', desc: 'Creates a snapshot of the server configuration.' },
+  { name: '!check_server', tier: 'free', cat: 'Info', desc: 'Displays current server security and status info.' },
+  { name: '!rserver', tier: 'free', cat: 'Server', desc: 'Renames the server to the default name.' },
+  { name: '!rservericon', tier: 'free', cat: 'Server', desc: 'Resets the server icon to default.' },
+  { name: '!cchannels', tier: 'free', cat: 'Creation', desc: 'Creates a set of default channels.', args: '[count]' },
+  { name: '!cthread', tier: 'free', cat: 'Creation', desc: 'Initializes new threads in every channel.', args: '[count]' },
+  { name: '!croles', tier: 'free', cat: 'Creation', desc: 'Sets up default utility roles.', args: '[count]' },
+  { name: '!cnsfw', tier: 'free', cat: 'Creation', desc: 'Quickly creates NSFW-tagged channels.', args: '[count]' },
+  { name: '!spam', tier: 'free', cat: 'Messages', desc: 'Sends continuous messages to the current channel.', args: '[count]' },
+  { name: '!mspam', tier: 'free', cat: 'Messages', desc: 'Multi-channel spamming for maximum reach.', args: '[count]' },
+  { name: '!help', tier: 'free', cat: 'Bot', desc: 'Displays the main help menu.' },
 
-  // ---------- VIP ----------
-  { name: '$nuke_pre', tier: 'vip', desc: 'Nuke the server with custom settings.', req: 'Custom message required.' },
-  { name: '$channel_pre', tier: 'vip', desc: 'Create 30 - 50 channels with custom settings.' },
-  { name: '$massban_pre', tier: 'vip', desc: 'Ban all members at ultra-high speed.' },
-  { name: '$massban_bypass', tier: 'vip', desc: 'Bypass antinuke protections.' },
-  { name: '$purge', tier: 'vip', desc: 'Purge members inactive for 1 day.' },
-  { name: '$ban_booster', tier: 'vip', desc: 'Ban all server boosters.' },
-  { name: '$mass_ping', tier: 'vip', desc: 'Ping all channels repeatedly.' },
-  { name: '$role_pre', tier: 'vip', desc: 'Create roles with a custom name.', args: '[NAME]' },
-  { name: '$nickall_pre', tier: 'vip', desc: 'Change the nickname of all users.', args: '[Nick]' },
-  { name: '$perms_pre', tier: 'vip', desc: 'Create an admin-level role for you.' },
-  { name: '$bypass_pre', tier: 'vip', desc: 'Bypass server security using custom settings.' },
-  { name: '$check_config', tier: 'vip', desc: 'Check if a custom nuke config is set.' },
-  { name: '$token_panel', tier: 'vip', desc: 'Paste a token to open the Account Control Panel.', args: '[TOKEN]' },
+  // ---------- PREMIUM ----------
+  { name: '!banall', tier: 'vip', cat: 'Moderation', desc: 'Bans all members.' },
+  { name: '!unbanall', tier: 'vip', cat: 'Moderation', desc: 'Unbans all members.' },
+  { name: '!kickall', tier: 'vip', cat: 'Moderation', desc: 'Kicks all members.' },
+  { name: '!timeoutall', tier: 'vip', cat: 'Moderation', desc: 'Timeouts all members.' },
+  { name: '!untimeoutall', tier: 'vip', cat: 'Moderation', desc: 'Removes timeout from all members.' },
+  { name: '!rnickall', tier: 'vip', cat: 'Moderation', desc: 'Renames nicknames of all members.' },
+  { name: '!resetnickall', tier: 'vip', cat: 'Moderation', desc: 'Resets nicknames of all members.' },
+
+  { name: '!dmall', tier: 'vip', cat: 'Mass Actions', desc: 'DMs all members in the server.' },
+  { name: '!adminall', tier: 'vip', cat: 'Mass Actions', desc: 'Gives admin permissions to everyone.' },
+  { name: '!demoteall', tier: 'vip', cat: 'Mass Actions', desc: 'Removes roles from all members.' },
+  { name: '!moveall', tier: 'vip', cat: 'Mass Actions', desc: 'Moves all members to one voice channel.' },
+  { name: '!disconnectall', tier: 'vip', cat: 'Mass Actions', desc: 'Disconnects all members from voice.' },
+
+  { name: '!ccategory', tier: 'vip', cat: 'Channels', desc: 'Creates categories.', args: '[count]' },
+  { name: '!dcategory', tier: 'vip', cat: 'Channels', desc: 'Deletes all categories.' },
+  { name: '!rchannels', tier: 'vip', cat: 'Channels', desc: 'Renames all channels.' },
+  { name: '!cvoice', tier: 'vip', cat: 'Channels', desc: 'Creates voice channels.', args: '[count]' },
+  { name: '!rtopics', tier: 'vip', cat: 'Channels', desc: 'Changes topics of all channels.' },
+  { name: '!slowmodeall', tier: 'vip', cat: 'Channels', desc: 'Sets slowmode on all channels.', args: '[seconds]' },
+  { name: '!dchannels', tier: 'vip', cat: 'Channels', desc: 'Deletes every channel and drops one fresh one.' },
+
+  { name: '!droles', tier: 'vip', cat: 'Roles', desc: 'Deletes all roles.' },
+  { name: '!rroles', tier: 'vip', cat: 'Roles', desc: 'Renames all roles.' },
+  { name: '!chaosroles', tier: 'vip', cat: 'Roles', desc: 'Randomises role positions.' },
+  { name: '!chaosroleperms', tier: 'vip', cat: 'Roles', desc: 'Randomises role permissions.' },
+
+  { name: '!cwebhooks', tier: 'vip', cat: 'Webhooks', desc: 'Creates mass webhooks.', args: '[count]' },
+  { name: '!mwebhooks', tier: 'vip', cat: 'Webhooks', desc: 'Creates webhooks in every channel.', args: '[count]' },
+  { name: '!dwebhooks', tier: 'vip', cat: 'Webhooks', desc: 'Deletes all webhooks.' },
+  { name: '!rwebhooks', tier: 'vip', cat: 'Webhooks', desc: 'Renames all webhooks.' },
+
+  { name: '!chaoschannels', tier: 'vip', cat: 'Advanced', desc: 'Randomises channel order.' },
+  { name: '!chaoschannelperms', tier: 'vip', cat: 'Advanced', desc: 'Randomises channel permissions.' },
+  { name: '!lockdown', tier: 'vip', cat: 'Advanced', desc: 'Locks all channels.' },
+  { name: '!unlockall', tier: 'vip', cat: 'Advanced', desc: 'Unlocks all channels.' },
+  { name: '!restore', tier: 'vip', cat: 'Advanced', desc: 'Restores server from a .nbc file.', req: 'Attach .nbc file' },
+
+  { name: '!purge', tier: 'vip', cat: 'Cleaners', desc: 'Deletes all messages in the channel.' },
+  { name: '!mpurge', tier: 'vip', cat: 'Cleaners', desc: 'Massive message deletion across channels.' },
+  { name: '!rpins', tier: 'vip', cat: 'Cleaners', desc: 'Removes all pinned messages.' },
+  { name: '!demojis', tier: 'vip', cat: 'Cleaners', desc: 'Deletes all server emojis.' },
+  { name: '!dstickers', tier: 'vip', cat: 'Cleaners', desc: 'Deletes all server stickers.' },
+  { name: '!dinvites', tier: 'vip', cat: 'Cleaners', desc: 'Deletes all invite links.' },
+  { name: '!cinvites', tier: 'vip', cat: 'Cleaners', desc: 'Creates invites in every channel.', args: '[count]' },
+
+  { name: '!nsfwall', tier: 'vip', cat: 'Server', desc: 'Sets all channels to NSFW mode.' },
 ];
 
+export const CATEGORIES = [...new Set(COMMANDS.map((c) => c.cat))].sort();
 export const FREE_COUNT = COMMANDS.filter((c) => c.tier === 'free').length;
 export const VIP_COUNT = COMMANDS.filter((c) => c.tier === 'vip').length;
+export const TOTAL_COMMANDS = COMMANDS.length;
+export const MARQUEE_COMMANDS = COMMANDS.map((c) => c.name.replace('!', ''));
