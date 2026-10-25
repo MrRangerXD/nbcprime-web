@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Server, Users, Terminal, Zap, Trophy, Gift, Activity } from 'lucide-react';
+import { Server, Users, Terminal, Zap, Trophy, Gift, Activity, SlidersHorizontal } from 'lucide-react';
 import { api } from '../../lib/api';
-import { Stat, Card, Loader, Avatar } from '../../components/ui';
+import { Stat, Card, Loader, Avatar, Badge } from '../../components/ui';
 import { nf } from '../../lib/format';
 import { useAuth } from '../../context/AuthContext';
+import DiscordPreview from '../../components/DiscordPreview';
 
 export default function Overview() {
   const { user } = useAuth();
@@ -12,6 +13,8 @@ export default function Overview() {
   const [failed, setFailed] = useState(false);
   const [top, setTop] = useState([]);
   const [activity, setActivity] = useState([]);
+  const [config, setConfig] = useState(null);
+  const [isDefault, setIsDefault] = useState(true);
 
   useEffect(() => {
     let alive = true;
@@ -19,6 +22,11 @@ export default function Overview() {
       api.get('/api/public/stats').then((d) => alive && setStats(d.stats)).catch(() => alive && setFailed(true)),
       api.get('/api/public/leaderboard/users?limit=5').then((d) => alive && setTop(d.data || [])).catch(() => {}),
       api.get('/api/leaderboard/activity?days=14').then((d) => alive && setActivity(d.data || [])).catch(() => {}),
+      api.get('/api/me/nuke-config').then((d) => {
+        if (!alive) return;
+        setConfig(d.data.config);
+        setIsDefault(d.data.isDefault);
+      }).catch(() => {}),
     ]);
     return () => { alive = false; };
   }, []);
@@ -39,7 +47,7 @@ export default function Overview() {
     <div className="space-y-6">
       <div>
         <h1 className="font-display text-3xl font-bold">Welcome back, {user.globalName || user.username}</h1>
-        <p className="mt-1.5 text-sm text-muted">Live bot telemetry and your control surface.</p>
+        <p className="mt-1.5 text-sm text-muted">Manage your nuke performance and server activity.</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -92,6 +100,48 @@ export default function Overview() {
             ))}
             {top.length === 0 && <p className="text-sm text-muted">No data yet.</p>}
           </div>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <SlidersHorizontal size={16} className="text-accent" />
+              <h2 className="font-display font-semibold">Current Nuke Bot Config</h2>
+            </div>
+            <Badge tone={isDefault ? 'default' : 'green'}>{isDefault ? 'Defaults' : 'Custom'}</Badge>
+          </div>
+          <p className="mt-1.5 text-xs text-muted">
+            Parameters deployed when you execute a nuke command on Discord.
+          </p>
+
+          {config && (
+            <div className="mt-4 space-y-2 text-sm">
+              {[
+                ['New Server Name', config.serverName],
+                ['Spam Channel', config.channelName],
+                ['Channels Created', config.channelCount + ' channels'],
+                ['Spam Message', config.spamMessage],
+                ['Server Icon', config.serverIconUrl || 'Not set'],
+              ].map(([k, v]) => (
+                <div key={k} className="flex items-start justify-between gap-4 rounded-lg border border-edge bg-surface/40 px-3 py-2">
+                  <span className="text-xs text-muted">{k}</span>
+                  <span className="max-w-[60%] truncate text-right text-xs font-medium">{v}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <Link to="/dashboard/customization" className="btn-primary mt-5 block py-3 text-center text-sm">
+            Customize Config
+          </Link>
+        </Card>
+
+        <Card>
+          <h2 className="font-display font-semibold">Discord Live Preview</h2>
+          <p className="mt-1.5 text-xs text-muted">How the nuke will look inside Discord.</p>
+          <div className="mt-4">{config && <DiscordPreview config={config} />}</div>
         </Card>
       </div>
 
