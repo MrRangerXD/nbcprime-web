@@ -5,6 +5,8 @@ import { useAuth } from '../context/AuthContext';
 import { avatarUrl } from '../lib/format';
 import Logo from './Logo';
 import { Badge } from './ui';
+import { useState } from 'react';
+import InviteBotModal from './InviteBotModal';
 
 const links = [
   { to: '/', label: 'Home' },
