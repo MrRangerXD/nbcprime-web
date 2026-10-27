@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom';
 import { Check, Sparkles } from 'lucide-react';
 import { Badge } from './ui';
+import { ADD_BOT_URL } from '../lib/bots';
 
-export const ADD_BOT_URL =
-  'https://discord.com/oauth2/authorize?client_id=1563885964567257128&permissions=8&integration_type=0&scope=bot+applications.commands';
+export { ADD_BOT_URL };
 
 export const TIERS = [
   { id: 'free', label: 'Free', price: '₹0', usd: '$0', tagline: 'Start nuking today', cta: 'Add to Discord', href: ADD_BOT_URL,
