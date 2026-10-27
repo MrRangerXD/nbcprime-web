@@ -13,9 +13,7 @@ import PricingSection from '../components/PricingSection';
 import VideoSection from '../components/VideoSection';
 import Faq from '../components/Faq';
 import { MARQUEE_COMMANDS, TOTAL_COMMANDS, VIP_COUNT } from '../lib/commands';
-
-const ADD_BOT_URL =
-  'https://discord.com/oauth2/authorize?client_id=1563885964567257128&permissions=8&integration_type=0&scope=bot+applications.commands';
+import { ADD_BOT_URL } from '../lib/bots';
 
 const features = [
   { icon: Rocket, title: 'Remote Nuke', desc: 'Wipe a server from your browser. Parallel deletion, creation and spam in one shot.' },
